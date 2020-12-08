@@ -23,7 +23,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.EventStores
 				{
 					StorageAccountConnectionString = "UseDevelopmentStorage=true",
 					SystemContainerName = "eventflow-system-params",
-					EventStoreTableName = "EventStoreEvents"
+					EventStoreTableName = "EventFlowEvents"
 				};
 			var factory = new AzureStorageFactory(config);
 			await factory.InitializeAsync().ConfigureAwait(false);

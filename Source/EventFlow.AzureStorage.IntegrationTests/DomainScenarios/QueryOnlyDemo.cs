@@ -14,7 +14,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 		private static readonly FundId AggregateId = new FundId("a");
 
 		[Test]
-		public async Task Query_before_events_are_loaded()
+		public async Task Query_before_events_are_loaded_should_not_throw_exception()
 		{
 			Console.WriteLine("Querying quantity");
 			var result = await QueryProcessor
