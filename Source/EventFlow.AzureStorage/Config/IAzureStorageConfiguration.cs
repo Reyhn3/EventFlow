@@ -3,9 +3,12 @@
 	public interface IAzureStorageConfiguration
 	{
 		string StorageAccountConnectionString { get; }
+
 		string SystemContainerName { get; }
-		string EventStoreTableName { get; }
 		int SequenceNumberRangeSize { get; }
 		int SequenceNumberOptimisticConcurrencyRetries { get; }
+		
+		string EventStoreTableName { get; }
+		string ReadStoreTableName { get; }
 	}
 }

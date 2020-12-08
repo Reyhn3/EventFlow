@@ -6,6 +6,7 @@ using EventFlow.Configuration;
 
 namespace EventFlow.AzureStorage.Extensions
 {
+//TODO: Consider moving these registrations into the other extensions.
 	public static class EventFlowOptionsAzureStorageExtensions
 	{
 		public static IEventFlowOptions UseAzureStorage(this IEventFlowOptions eventFlowOptions)
@@ -17,7 +18,7 @@ namespace EventFlow.AzureStorage.Extensions
 						sr.Register<IUniqueIdGenerator, UniqueIdGenerator>(Lifetime.Singleton);
 						sr.Register<IOptimisticSyncStore, BlobOptimisticSyncStore>(Lifetime.Singleton);
 					});
-		}	
+		}
 
 		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, IAzureStorageConfiguration azureStorageConfiguration)
 		{

@@ -9,6 +9,7 @@ namespace EventFlow.AzureStorage.Connection
 	{
 		Task InitializeAsync();
 		CloudTable CreateTableReferenceForEventStore();
+		CloudTable CreateTableReferenceForReadStore();
 		BlobClient CreateBlobClientForSequenceNumber();
 	}
 }

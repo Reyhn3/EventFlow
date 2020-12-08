@@ -32,8 +32,11 @@ namespace EventFlow.AzureStorage.Connection
 				if (_isInitialized)
 					return;
 
-				var table = CreateTableReferenceForEventStore();
-				await table.CreateIfNotExistsAsync().ConfigureAwait(false);
+				var eventStore = CreateTableReferenceForEventStore();
+				await eventStore.CreateIfNotExistsAsync().ConfigureAwait(false);
+
+				var readStore = CreateTableReferenceForReadStore();
+				await readStore.CreateIfNotExistsAsync().ConfigureAwait(false);
 
 				var container = CreateBlobContainerClient();
 				await container.CreateIfNotExistsAsync().ConfigureAwait(false);
@@ -47,12 +50,18 @@ namespace EventFlow.AzureStorage.Connection
 		}
 
 		public CloudTable CreateTableReferenceForEventStore()
+			=> CreateTableReference(_configuration.EventStoreTableName);
+
+		public CloudTable CreateTableReferenceForReadStore()
+			=> CreateTableReference(_configuration.ReadStoreTableName);
+
+		private CloudTable CreateTableReference(string tableName)
 		{
-			if (string.IsNullOrWhiteSpace(_configuration.EventStoreTableName))
-				throw new ArgumentNullException(nameof(_configuration.EventStoreTableName));
+			if (string.IsNullOrWhiteSpace(tableName))
+				throw new ArgumentNullException(nameof(tableName));
 
 			var client = _cloudStorageAccount.CreateCloudTableClient();
-			var table = client.GetTableReference(_configuration.EventStoreTableName);
+			var table = client.GetTableReference(tableName);
 			return table;
 		}
 

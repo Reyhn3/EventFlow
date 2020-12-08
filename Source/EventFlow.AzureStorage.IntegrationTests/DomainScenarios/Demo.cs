@@ -27,16 +27,17 @@ namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 		{
 			var resolver = EventFlowOptions.New
 				.RegisterModule<Module>()
-				.UseInMemoryReadStoreFor<FundReadModel>()
+				.UseAzureStorageReadModel<FundReadModel>()
 				.UseAzureStorage()
 				.UseAzureStorageEventStore()
 				.ConfigureAzureStorage(new AzureStorageConfiguration
 					{
 						StorageAccountConnectionString = "UseDevelopmentStorage=true",
 						SystemContainerName = "eventflow-system-params",
-						EventStoreTableName = "EventFlowEvents",
 						SequenceNumberRangeSize = 100,
-						SequenceNumberOptimisticConcurrencyRetries = 25
+						SequenceNumberOptimisticConcurrencyRetries = 25,
+						EventStoreTableName = "EventFlowEvents",
+						ReadStoreTableName = "EventFlowReadModels"
 					})
 				.CreateResolver();
 
