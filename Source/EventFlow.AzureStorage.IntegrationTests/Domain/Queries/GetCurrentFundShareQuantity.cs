@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.Queries;
-using EventFlow.ReadStores.InMemory;
+using EventFlow.ReadStores;
 
 
 namespace EventFlow.AzureStorage.IntegrationTests.Domain.Queries
@@ -20,9 +20,9 @@ namespace EventFlow.AzureStorage.IntegrationTests.Domain.Queries
 
 	internal class GetCurrentFundShareQuantityQueryHandler : IQueryHandler<GetCurrentFundShareQuantity, decimal>
 	{
-		private readonly IInMemoryReadStore<FundReadModel> _readStore;
+		private readonly IReadModelStore<FundReadModel> _readStore;
 
-		public GetCurrentFundShareQuantityQueryHandler(IInMemoryReadStore<FundReadModel> readStore)
+		public GetCurrentFundShareQuantityQueryHandler(IReadModelStore<FundReadModel> readStore)
 		{
 			_readStore = readStore ?? throw new ArgumentNullException(nameof(readStore));
 		}
