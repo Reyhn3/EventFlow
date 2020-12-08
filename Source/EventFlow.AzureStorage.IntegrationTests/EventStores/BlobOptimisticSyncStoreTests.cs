@@ -10,7 +10,7 @@ using Shouldly;
 
 namespace EventFlow.AzureStorage.IntegrationTests.EventStores
 {
-	[Explicit("Integration tests")]
+	[Explicit("Intended for manual verification")]
 	[Category(Categories.Integration)]
 	public class BlobOptimisticSyncStoreTests
 	{
