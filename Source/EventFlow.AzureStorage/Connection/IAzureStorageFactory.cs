@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 using Microsoft.Azure.Cosmos.Table;
 
 
@@ -8,5 +9,6 @@ namespace EventFlow.AzureStorage.Connection
 	{
 		Task InitializeAsync();
 		CloudTable CreateTableReferenceForEventStore();
+		BlobClient CreateBlobClientForSequenceNumber();
 	}
 }

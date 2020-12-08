@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 using EventFlow.AzureStorage.Config;
 using Microsoft.Azure.Cosmos.Table;
 
@@ -34,6 +35,9 @@ namespace EventFlow.AzureStorage.Connection
 				var table = CreateTableReferenceForEventStore();
 				await table.CreateIfNotExistsAsync().ConfigureAwait(false);
 
+				var container = CreateBlobContainerClient();
+				await container.CreateIfNotExistsAsync().ConfigureAwait(false);
+
 				_isInitialized = true;
 			}
 			finally
@@ -51,5 +55,15 @@ namespace EventFlow.AzureStorage.Connection
 			var table = client.GetTableReference(_configuration.EventStoreTableName);
 			return table;
 		}
+
+		public BlobClient CreateBlobClientForSequenceNumber()
+		{
+			var container = CreateBlobContainerClient();
+			var client = container.GetBlobClient(GlobalSequenceNumberBlobName);
+			return client;
+		}
+
+		private BlobContainerClient CreateBlobContainerClient()
+			=> new BlobContainerClient(_configuration.StorageAccountConnectionString, _configuration.SystemContainerName);
 	}
 }
