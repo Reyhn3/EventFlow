@@ -9,6 +9,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.Domain
 		IAmReadModelFor<FundAggregate, FundId, FundSharesBought>,
 		IAmReadModelFor<FundAggregate, FundId, FundSharesSold>
 	{
+		public FundId Id { get; set; }
 		public FundState State { get; } = new FundState();
 
 		public void Apply(IReadModelContext context, IDomainEvent<FundAggregate, FundId, FundSharesBought> domainEvent)

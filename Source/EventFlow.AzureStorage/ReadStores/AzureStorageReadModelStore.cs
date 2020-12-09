@@ -107,7 +107,9 @@ namespace EventFlow.AzureStorage.ReadStores
 			IReadModelContextFactory readModelContextFactory,
 			Func<IReadModelContext, IReadOnlyCollection<IDomainEvent>, ReadModelEnvelope<TReadModel>, CancellationToken, Task<ReadModelUpdateResult<TReadModel>>> updateReadModel,
 			CancellationToken cancellationToken)
-			=> throw new NotImplementedException();
+		{
+			throw new NotImplementedException();
+		}
 
 		private static string GetPartitionKey()
 			=> typeof(TReadModel).PrettyPrint();
