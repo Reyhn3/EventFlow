@@ -33,13 +33,16 @@ namespace EventFlow.AzureStorage.Connection
 					return;
 
 				var eventStore = CreateTableReferenceForEventStore();
-				await eventStore.CreateIfNotExistsAsync().ConfigureAwait(false);
+				if (!eventStore.Exists())
+					await eventStore.CreateIfNotExistsAsync().ConfigureAwait(false);
 
 				var readStore = CreateTableReferenceForReadStore();
-				await readStore.CreateIfNotExistsAsync().ConfigureAwait(false);
+				if (!readStore.Exists())
+					await readStore.CreateIfNotExistsAsync().ConfigureAwait(false);
 
 				var container = CreateBlobContainerClient();
-				await container.CreateIfNotExistsAsync().ConfigureAwait(false);
+				if (!await container.ExistsAsync().ConfigureAwait(false))
+					await container.CreateIfNotExistsAsync().ConfigureAwait(false);
 
 				_isInitialized = true;
 			}
