@@ -14,6 +14,14 @@ using Microsoft.Azure.Cosmos.Table.Protocol;
 
 namespace EventFlow.AzureStorage.EventStores
 {
+	/// <summary>
+	///		Persists all events in a single Azure Storage <b>Table</b>.
+	/// </summary>
+	/// <remarks>
+	///		The <c>PartitionKey</c> is set to the <see cref="IIdentity.Value"/> of the aggregate's <see cref="AggregateRoot{TAggregate,TIdentity}.Id"/>,
+	///		effectively isolating each aggregate into its own partition, which facilitates querying and maintenance.
+	///		The <c>RowKey</c> is set to a sortable representation of the <see cref="ISerializedEvent.AggregateSequenceNumber"/>.
+	/// </remarks>
 	public class AzureStoragePersistence : IEventPersistence
 	{
 		/// <summary>
