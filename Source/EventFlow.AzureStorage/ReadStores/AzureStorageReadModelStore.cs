@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.Aggregates;
 using EventFlow.AzureStorage.Connection;
+using EventFlow.AzureStorage.Extensions;
 using EventFlow.Extensions;
 using EventFlow.Logs;
 using EventFlow.ReadStores;
@@ -117,13 +118,26 @@ namespace EventFlow.AzureStorage.ReadStores
 			else
 				readModelEnvelopes = RetrieveMultipleEnvelopes(readModelUpdates.Select(rmu => rmu.ReadModelId));
 
-//TODO: Handle envelopes not found (or irretrievable).
+			// When retrieving from Azure Storage Tables, missing entities are omitted.
+			// Do a full join with the original read model updates to create an envelope
+			// for every update. Also keep track on which entity is missing (i.e. new).
+			var allEnvelopes = readModelEnvelopes
+				.FullJoinAsync(
+					readModelUpdates,
+					e => e.ReadModelId,
+					u => u.ReadModelId,
+					e => (e, false),
+					async u => (await CreateEnvelopeForMissingModelAsync(u.ReadModelId, cancellationToken).ConfigureAwait(false), true),
+					(e, u) => (e, false),
+					null);
+			
+			var readModelContexts = allEnvelopes.Select(e => readModelContextFactory.Create(e.Item1.ReadModelId, e.Item2));
 		}
 		
 		private async Task<IEnumerable<ReadModelEnvelope<TReadModel>>> RetrieveSingleEnvelopeAsync(string readModelId, CancellationToken cancellationToken)
 		{
 			var readModelEnvelope = await GetAsync(readModelId, cancellationToken).ConfigureAwait(false);
-			return new List<ReadModelEnvelope<TReadModel>>{readModelEnvelope}.AsReadOnly();
+			return readModelEnvelope.AsEnumerable();
 		}
 
 		// Retrieving multiple distinct records from an Azure Storage Table is no trivial task.
@@ -175,8 +189,8 @@ namespace EventFlow.AzureStorage.ReadStores
 			// This is a limitation that will show itself as an exception
 			// with the error message "Recursion depth exceeded allowed limit"
 			// if there are too many conditions in the filter string.
-			// The value 110 has been found by trial-and-error.
-			const int assumedMaxRecursionDepth = 110;
+			// The value 100 has been found by trial-and-error.
+			const int assumedMaxRecursionDepth = 100;
 
 			var maxLength = calculateQueryFilterMaxLength();
 			var remainingLength = maxLength;
@@ -245,6 +259,13 @@ namespace EventFlow.AzureStorage.ReadStores
 			var readModel = JsonConvert.DeserializeObject<TReadModel>(entity.Data);
 			var readModelVersion = entity.Version;
 			var readModelEnvelope = ReadModelEnvelope<TReadModel>.With(entity.RowKey, readModel, readModelVersion);
+			return readModelEnvelope;
+		}
+
+		private async Task<ReadModelEnvelope<TReadModel>> CreateEnvelopeForMissingModelAsync(string readModelId, CancellationToken cancellationToken)
+		{
+			var readModel = await _readModelFactory.CreateAsync(readModelId, cancellationToken).ConfigureAwait(false);
+			var readModelEnvelope = ReadModelEnvelope<TReadModel>.With(readModelId, readModel);
 			return readModelEnvelope;
 		}
 
