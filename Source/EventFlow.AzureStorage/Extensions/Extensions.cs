@@ -12,15 +12,14 @@ namespace EventFlow.AzureStorage.Extensions
 		{
 			return element == null ? Enumerable.Empty<T>() : new[] {element};
 		}
-		
-		public static IAsyncEnumerable<TResult> FullJoinAsync<TFirst, TSecond, TKey, TResult>(
+
+		public static async IAsyncEnumerable<TResult> LeftJoinAsync<TFirst, TSecond, TKey, TResult>(
 			this IEnumerable<TFirst> first,
 			IEnumerable<TSecond> second,
 			Func<TFirst, TKey> firstKeySelector,
 			Func<TSecond, TKey> secondKeySelector,
-			Func<TFirst, TResult> firstSelector,
-			Func<TSecond, Task<TResult>> secondSelector,
-			Func<TFirst, TSecond, TResult> bothSelector,
+			Func<TFirst, Task<TResult>> firstSelector,
+			Func<TFirst, TSecond, Task<TResult>> bothSelector,
 			IEqualityComparer<TKey>? comparer)
 		{
 			if (first == null) throw new ArgumentNullException(nameof(first));
@@ -28,42 +27,26 @@ namespace EventFlow.AzureStorage.Extensions
 			if (firstKeySelector == null) throw new ArgumentNullException(nameof(firstKeySelector));
 			if (secondKeySelector == null) throw new ArgumentNullException(nameof(secondKeySelector));
 			if (firstSelector == null) throw new ArgumentNullException(nameof(firstSelector));
-			if (secondSelector == null) throw new ArgumentNullException(nameof(secondSelector));
 			if (bothSelector == null) throw new ArgumentNullException(nameof(bothSelector));
 
-			return _();
+			var groups = first
+				.GroupJoin(
+					second,
+					firstKeySelector,
+					secondKeySelector,
+					(f, s) => (
+						Value: f,
+						Seconds: s.Select(ss => (
+							HasValue: true,
+							Value: ss))),
+					comparer);
 
-			async IAsyncEnumerable<TResult> _()
-			{
-				var seconds = second.Select(e => new KeyValuePair<TKey, TSecond>(secondKeySelector(e), e)).ToArray();
-				var secondLookup = seconds.ToLookup(e => e.Key, e => e.Value, comparer);
-				var firstKeys = new HashSet<TKey>(comparer);
-
-				foreach (var fe in first)
-				{
-					var key = firstKeySelector(fe);
-					firstKeys.Add(key);
-
-					using var se = secondLookup[key].GetEnumerator();
-
-					if (se.MoveNext())
-					{
-						do
-						{
-							yield return bothSelector(fe, se.Current);
-						} while (se.MoveNext());
-					}
-					else
-					{
-						se.Dispose();
-						yield return firstSelector(fe);
-					}
-				}
-
-				foreach (var (key, value) in seconds)
-					if (!firstKeys.Contains(key))
-						yield return await secondSelector(value);
-			}
+			foreach (var (f, seconds) in groups)
+			foreach (var (secondHasValue, s) in seconds.DefaultIfEmpty())
+				if (secondHasValue)
+					yield return await bothSelector(f, s).ConfigureAwait(false);
+				else
+					yield return await firstSelector(f).ConfigureAwait(false);
 		}
 	}
 }

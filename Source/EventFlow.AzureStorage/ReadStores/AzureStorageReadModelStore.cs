@@ -119,19 +119,49 @@ namespace EventFlow.AzureStorage.ReadStores
 				readModelEnvelopes = RetrieveMultipleEnvelopes(readModelUpdates.Select(rmu => rmu.ReadModelId));
 
 			// When retrieving from Azure Storage Tables, missing entities are omitted.
-			// Do a full join with the original read model updates to create an envelope
-			// for every update. Also keep track on which entity is missing (i.e. new).
-			var allEnvelopes = readModelEnvelopes
-				.FullJoinAsync(
-					readModelUpdates,
-					e => e.ReadModelId,
+			// Perform a left join to produce one context for each incoming update.
+			var contexts = readModelUpdates
+				.LeftJoinAsync(
+					readModelEnvelopes,
 					u => u.ReadModelId,
-					e => (e, false),
-					async u => (await CreateEnvelopeForMissingModelAsync(u.ReadModelId, cancellationToken).ConfigureAwait(false), true),
-					(e, u) => (e, false),
+					e => e.ReadModelId,
+					async u =>
+						{
+							var readModelEnvelope = await CreateEnvelopeForMissingModelAsync(u.ReadModelId, cancellationToken).ConfigureAwait(false);
+							var readModelContext = readModelContextFactory.Create(u.ReadModelId, true);
+							return new ReadModelUpdateContext(u, readModelEnvelope, readModelContext);
+						},
+					(u, e) =>
+						{
+							var readModelContext = readModelContextFactory.Create(u.ReadModelId, false);
+							return Task.FromResult(new ReadModelUpdateContext(u, e, readModelContext));
+						},
 					null);
-			
-			var readModelContexts = allEnvelopes.Select(e => readModelContextFactory.Create(e.Item1.ReadModelId, e.Item2));
+
+			await foreach (var context in contexts.WithCancellation(cancellationToken).ConfigureAwait(false))
+			{
+				var originalVersion = context.ReadModelEnvelope.Version;
+
+				var readModelUpdateResult = await updateReadModel(
+					context.ReadModelContext,
+					context.ReadModelUpdate.DomainEvents,
+					context.ReadModelEnvelope,
+					cancellationToken).ConfigureAwait(false);
+				if (!readModelUpdateResult.IsModified)
+					continue;
+
+				if (context.ReadModelContext.IsMarkedForDeletion)
+				{
+					await DeleteAsync(context.ReadModelId, cancellationToken).ConfigureAwait(false);
+					continue;
+				}
+
+				var readModelEnvelope = readModelUpdateResult.Envelope;
+				
+//TODO: SetVersion?
+				
+//TODO: Insert or Update.
+			}
 		}
 		
 		private async Task<IEnumerable<ReadModelEnvelope<TReadModel>>> RetrieveSingleEnvelopeAsync(string readModelId, CancellationToken cancellationToken)
@@ -267,6 +297,25 @@ namespace EventFlow.AzureStorage.ReadStores
 			var readModel = await _readModelFactory.CreateAsync(readModelId, cancellationToken).ConfigureAwait(false);
 			var readModelEnvelope = ReadModelEnvelope<TReadModel>.With(readModelId, readModel);
 			return readModelEnvelope;
+		}
+
+
+		private class ReadModelUpdateContext
+		{
+			public ReadModelUpdateContext(
+				ReadModelUpdate readModelUpdate,
+				ReadModelEnvelope<TReadModel> readModelEnvelope,
+				IReadModelContext readModelContext)
+			{
+				ReadModelUpdate = readModelUpdate;
+				ReadModelEnvelope = readModelEnvelope;
+				ReadModelContext = readModelContext;
+			}
+
+			public string ReadModelId => ReadModelUpdate.ReadModelId;
+			public ReadModelUpdate ReadModelUpdate { get; }
+			public ReadModelEnvelope<TReadModel> ReadModelEnvelope { get; }
+			public IReadModelContext ReadModelContext { get; }
 		}
 
 
