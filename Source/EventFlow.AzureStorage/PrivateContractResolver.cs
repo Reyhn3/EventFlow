@@ -5,7 +5,7 @@ using Newtonsoft.Json.Serialization;
 
 namespace EventFlow.AzureStorage
 {
-	public class PrivateContractResolver : DefaultContractResolver
+	internal class PrivateContractResolver : DefaultContractResolver
 	{
 		protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
 		{
