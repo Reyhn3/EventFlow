@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.Aggregates;
 using EventFlow.AzureStorage.Connection;
+using EventFlow.AzureStorage.Extensions;
 using EventFlow.Core;
 using EventFlow.EventStores;
 using EventFlow.Logs;
@@ -109,6 +110,7 @@ namespace EventFlow.AzureStorage.EventStores
 			
 			_log.Verbose("Committing {0} events to Azure Storage event store for entity with ID '{1}'", serializedEvents.Count, id);
 
+//TODO: This should batch in case there are many events.
 			var operation = new TableBatchOperation();
 			foreach (var entity in entities)
 				operation.Add(TableOperation.Insert(entity));
@@ -159,12 +161,7 @@ namespace EventFlow.AzureStorage.EventStores
 				var resultSegment = await table.ExecuteQuerySegmentedAsync(query, token, cancellationToken).ConfigureAwait(false);
 				token = resultSegment.ContinuationToken;
 
-				var chunks = resultSegment.Results
-					.Select((x, index) => new { Index = index, Value = x })
-					.Where(x => x.Value != null)
-					.GroupBy(x => x.Index / TableConstants.TableServiceBatchMaximumOperations)
-					.Select(x => x.Select(v => v.Value));
-
+				var chunks = resultSegment.Results.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
 				foreach (var chunk in chunks)
 				{
 					var operation = new TableBatchOperation();
