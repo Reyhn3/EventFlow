@@ -17,6 +17,9 @@ namespace EventFlow.AzureStorage.Extensions
 
 		public static IEnumerable<IEnumerable<T>> Batch<T>(this IEnumerable<T> sequence, int batchSize, bool excludeNull = false)
 		{
+			if (batchSize <= 0)
+				throw new ArgumentOutOfRangeException(nameof(batchSize), batchSize, "Batch size must be a positive non-zero number");
+				
 			return sequence
 				.Where(e => excludeNull ? e != null : true)
 				.Select((Value, Index) => new {Index, Value})
@@ -26,6 +29,9 @@ namespace EventFlow.AzureStorage.Extensions
 
 		public static IAsyncEnumerable<IAsyncEnumerable<T>> Batch<T>(this IAsyncEnumerable<T> asyncSequence, int batchSize, bool excludeNull = false)
 		{
+			if (batchSize <= 0)
+				throw new ArgumentOutOfRangeException(nameof(batchSize), batchSize, "Batch size must be a positive non-zero number");
+				
 			return asyncSequence
 				.Where(e => excludeNull ? e != null : true)
 				.Select((Value, Index) => new {Index, Value})
