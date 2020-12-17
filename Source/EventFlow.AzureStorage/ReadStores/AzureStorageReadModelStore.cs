@@ -62,12 +62,7 @@ namespace EventFlow.AzureStorage.ReadStores
 				var resultSegment = await table.ExecuteQuerySegmentedAsync(query, token, cancellationToken).ConfigureAwait(false);
 				token = resultSegment.ContinuationToken;
 
-				var chunks = resultSegment.Results
-					.Select((x, index) => new { Index = index, Value = x })
-					.Where(x => x.Value != null)
-					.GroupBy(x => x.Index / TableConstants.TableServiceBatchMaximumOperations)
-					.Select(x => x.Select(v => v.Value));
-
+				var chunks = resultSegment.Results.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
 				foreach (var chunk in chunks)
 				{
 					var operation = new TableBatchOperation();
@@ -80,28 +75,14 @@ namespace EventFlow.AzureStorage.ReadStores
 			} while (token != null);
 		}
 
-//TODO: Consider using EntityResolver to store TReadModel directly. https://docs.microsoft.com/en-us/archive/blogs/windowsazurestorage/windows-azure-storage-client-library-2-0-tables-deep-dive#nosql
 		public async Task<ReadModelEnvelope<TReadModel>> GetAsync(string id, CancellationToken cancellationToken)
 		{
-			var (partitionKey, rowKey) = GetKeys(id);
-			var operation = TableOperation.Retrieve<ReadModelEntity>(partitionKey, rowKey);
-			var table = _azureStorageFactory.CreateTableReferenceForReadStore();
-			var result = await table.ExecuteAsync(operation, cancellationToken).ConfigureAwait(false);
-
-			if (!(result.Result is ReadModelEntity entity))
-			{
-				_log.Verbose(() => $"Could not find any Azure Storage read model '{partitionKey}' with ID '{id}'");
+			var entity = await RetrieveSingleEntityAsync(id, cancellationToken).ConfigureAwait(false);
+			if (entity == null)
 				return ReadModelEnvelope<TReadModel>.Empty(id);
-			}
 
-			if (string.IsNullOrWhiteSpace(entity.Data))
-			{
-				_log.Verbose(() => $"Found Azure Storage read model '{partitionKey}' with ID '{id}', but without any data");
-				return ReadModelEnvelope<TReadModel>.Empty(id);
-			}
-
-			var readModelEnvelope = CreateEnvelopeFromEntity(entity);
-			_log.Verbose(() => $"Found Azure Storage read model '{partitionKey}' with ID '{id}' and version '{readModelEnvelope.Version}'");
+			var readModelEnvelope = await CreateEnvelopeAsync(entity, cancellationToken).ConfigureAwait(false);
+			_log.Verbose(() => $"Found Azure Storage read model '{GetPartitionKey()}' with ID '{id}' and version '{readModelEnvelope.Version}'");
 
 			return readModelEnvelope;
 		}
@@ -112,68 +93,95 @@ namespace EventFlow.AzureStorage.ReadStores
 			Func<IReadModelContext, IReadOnlyCollection<IDomainEvent>, ReadModelEnvelope<TReadModel>, CancellationToken, Task<ReadModelUpdateResult<TReadModel>>> updateReadModel,
 			CancellationToken cancellationToken)
 		{
-			IEnumerable<ReadModelEnvelope<TReadModel>> readModelEnvelopes;
+			IEnumerable<ReadModelEntity> readModelEntities;
 			if (readModelUpdates.Count == 1)
-				readModelEnvelopes = await RetrieveSingleEnvelopeAsync(readModelUpdates.Single().ReadModelId, cancellationToken).ConfigureAwait(false);
+				readModelEntities = (await RetrieveSingleEntityAsync(readModelUpdates.Single().ReadModelId, cancellationToken).ConfigureAwait(false)).AsEnumerable();
 			else
-				readModelEnvelopes = RetrieveMultipleEnvelopes(readModelUpdates.Select(rmu => rmu.ReadModelId));
-
-			// When retrieving from Azure Storage Tables, missing entities are omitted.
-			// Perform a left join to produce one context for each incoming update.
+				readModelEntities = RetrieveMultipleEntities(readModelUpdates.Select(rmu => rmu.ReadModelId));
+			
 			var contexts = readModelUpdates
 				.LeftJoinAsync(
-					readModelEnvelopes,
+					readModelEntities,
 					u => u.ReadModelId,
-					e => e.ReadModelId,
+					e => e.RowKey,
 					async u =>
 						{
-							var readModelEnvelope = await CreateEnvelopeForMissingModelAsync(u.ReadModelId, cancellationToken).ConfigureAwait(false);
+							var readModelEnvelope = await CreateEnvelopeAsync(u.ReadModelId, cancellationToken).ConfigureAwait(false);
 							var readModelContext = readModelContextFactory.Create(u.ReadModelId, true);
-							return new ReadModelUpdateContext(u, readModelEnvelope, readModelContext);
+							return new ReadModelUpdateContext(u, null, readModelEnvelope, readModelContext);
 						},
-					(u, e) =>
+					async (u, e) =>
 						{
+							var readModelEnvelope = await CreateEnvelopeAsync(e, cancellationToken).ConfigureAwait(false);
 							var readModelContext = readModelContextFactory.Create(u.ReadModelId, false);
-							return Task.FromResult(new ReadModelUpdateContext(u, e, readModelContext));
+							return new ReadModelUpdateContext(u, e, readModelEnvelope, readModelContext);
 						},
 					null);
 
-			await foreach (var context in contexts.WithCancellation(cancellationToken).ConfigureAwait(false))
+//TODO: Make sure this updates the version number.
+			var updatedContexts = contexts
+				.ApplyOrExcludeAsync(async c =>
+					{
+						var readModelUpdateResult = await updateReadModel(
+							c.ReadModelContext,
+							c.ReadModelUpdate.DomainEvents,
+							c.ReadModelEnvelope,
+							cancellationToken).ConfigureAwait(false);
+						return readModelUpdateResult.IsModified;
+					}, cancellationToken);
+				
+			await PersistReadModelsAsync(updatedContexts, cancellationToken).ConfigureAwait(false);
+		}
+
+		private async Task PersistReadModelsAsync(IAsyncEnumerable<ReadModelUpdateContext> contexts, CancellationToken cancellationToken)
+		{
+			var batches = contexts.Batch(TableConstants.TableServiceBatchMaximumOperations);
+			await foreach (var batch in batches.WithCancellation(cancellationToken).ConfigureAwait(false))
 			{
-				var originalVersion = context.ReadModelEnvelope.Version;
-
-				var readModelUpdateResult = await updateReadModel(
-					context.ReadModelContext,
-					context.ReadModelUpdate.DomainEvents,
-					context.ReadModelEnvelope,
-					cancellationToken).ConfigureAwait(false);
-				if (!readModelUpdateResult.IsModified)
-					continue;
-
-				if (context.ReadModelContext.IsMarkedForDeletion)
-				{
-					await DeleteAsync(context.ReadModelId, cancellationToken).ConfigureAwait(false);
-					continue;
-				}
-
-				var readModelEnvelope = readModelUpdateResult.Envelope;
-				
-//TODO: SetVersion?
-				
-//TODO: Insert or Update.
+//TODO: Make sure to use the updated entities!
+				var operation = new TableBatchOperation();
+				await batch
+					.ForEachAsync(
+						c => operation
+							.Add(c.ReadModelContext.IsMarkedForDeletion
+									? TableOperation.Delete(c.ReadModelEntity)
+									: TableOperation.InsertOrReplace(c.ReadModelEntity)
+								),
+						cancellationToken)
+					.ConfigureAwait(false);
 			}
+			
+//TODO: Run the operation.
+		}
+
+//TODO: Consider using EntityResolver to store TReadModel directly. https://docs.microsoft.com/en-us/archive/blogs/windowsazurestorage/windows-azure-storage-client-library-2-0-tables-deep-dive#nosql
+		private async Task<ReadModelEntity> RetrieveSingleEntityAsync(string readModelId, CancellationToken cancellationToken)
+		{
+			var (partitionKey, rowKey) = GetKeys(readModelId);
+			var operation = TableOperation.Retrieve<ReadModelEntity>(partitionKey, rowKey);
+			var table = _azureStorageFactory.CreateTableReferenceForReadStore();
+			var result = await table.ExecuteAsync(operation, cancellationToken).ConfigureAwait(false);
+			
+			if (!(result.Result is ReadModelEntity entity))
+			{
+				_log.Verbose(() => $"Could not find any Azure Storage read model '{partitionKey}' with ID '{rowKey}'");
+				return null;
+			}
+
+			if (string.IsNullOrWhiteSpace(entity.Data))
+			{
+				_log.Verbose(() => $"Found Azure Storage read model '{partitionKey}' with ID '{rowKey}', but without any data");
+				return null;
+			}
+
+			return entity;
 		}
 		
-		private async Task<IEnumerable<ReadModelEnvelope<TReadModel>>> RetrieveSingleEnvelopeAsync(string readModelId, CancellationToken cancellationToken)
-		{
-			var readModelEnvelope = await GetAsync(readModelId, cancellationToken).ConfigureAwait(false);
-			return readModelEnvelope.AsEnumerable();
-		}
-
+//TODO: Consider using EntityResolver to store TReadModel directly. https://docs.microsoft.com/en-us/archive/blogs/windowsazurestorage/windows-azure-storage-client-library-2-0-tables-deep-dive#nosql
 		// Retrieving multiple distinct records from an Azure Storage Table is no trivial task.
 		// Since each retrieval is a network request, there is a lot of over-head associated with it.
 		// For better performance, group as many as possible into a single request.
-		internal IEnumerable<ReadModelEnvelope<TReadModel>> RetrieveMultipleEnvelopes(IEnumerable<string> readModelIds)
+		private IEnumerable<ReadModelEntity> RetrieveMultipleEntities(IEnumerable<string> readModelIds)
 		{
 			var partitionKey = GetPartitionKey();
 			var partitionKeyFilter = TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.Equal, partitionKey);
@@ -203,13 +211,13 @@ namespace EventFlow.AzureStorage.ReadStores
 				var query = new TableQuery<ReadModelEntity>().Where(filter);
 				var table = _azureStorageFactory.CreateTableReferenceForReadStore();
 				var results = table.ExecuteQuery(query);
-				var envelopes = results.Select(CreateEnvelopeFromEntity);
 
-				foreach (var envelope in envelopes)
-					yield return envelope;
+				foreach (var result in results)
+					yield return result;
 			}
 		}
 
+//TODO: Consider moving the run-length grouping into a separate class.
 		private IEnumerable<IGrouping<int, string>> GroupByRunningLength(IEnumerable<string> readModelIds)
 			=> GroupByRunningLength(readModelIds, CalculateQueryFilterMaxLength, CalculateRecordFilterLength);
 
@@ -283,16 +291,17 @@ namespace EventFlow.AzureStorage.ReadStores
 
 		private static string GetPartitionKey()
 			=> ReadModelName;
-
-		private static ReadModelEnvelope<TReadModel> CreateEnvelopeFromEntity(ReadModelEntity entity)
+		
+		// ReSharper disable once UnusedParameter.Local
+		private static Task<ReadModelEnvelope<TReadModel>> CreateEnvelopeAsync(ReadModelEntity entity, CancellationToken cancellationToken)
 		{
 			var readModel = JsonConvert.DeserializeObject<TReadModel>(entity.Data);
 			var readModelVersion = entity.Version;
 			var readModelEnvelope = ReadModelEnvelope<TReadModel>.With(entity.RowKey, readModel, readModelVersion);
-			return readModelEnvelope;
+			return Task.FromResult(readModelEnvelope);
 		}
 
-		private async Task<ReadModelEnvelope<TReadModel>> CreateEnvelopeForMissingModelAsync(string readModelId, CancellationToken cancellationToken)
+		private async Task<ReadModelEnvelope<TReadModel>> CreateEnvelopeAsync(string readModelId, CancellationToken cancellationToken)
 		{
 			var readModel = await _readModelFactory.CreateAsync(readModelId, cancellationToken).ConfigureAwait(false);
 			var readModelEnvelope = ReadModelEnvelope<TReadModel>.With(readModelId, readModel);
@@ -304,22 +313,25 @@ namespace EventFlow.AzureStorage.ReadStores
 		{
 			public ReadModelUpdateContext(
 				ReadModelUpdate readModelUpdate,
+				ReadModelEntity readModelEntity,
 				ReadModelEnvelope<TReadModel> readModelEnvelope,
 				IReadModelContext readModelContext)
 			{
 				ReadModelUpdate = readModelUpdate;
+				ReadModelEntity = readModelEntity;
 				ReadModelEnvelope = readModelEnvelope;
 				ReadModelContext = readModelContext;
 			}
 
 			public string ReadModelId => ReadModelUpdate.ReadModelId;
 			public ReadModelUpdate ReadModelUpdate { get; }
+			public ReadModelEntity ReadModelEntity { get; }
 			public ReadModelEnvelope<TReadModel> ReadModelEnvelope { get; }
 			public IReadModelContext ReadModelContext { get; }
 		}
 
 
-		private class ReadModelEntity : TableEntity
+		internal class ReadModelEntity : TableEntity
 		{
 			public ReadModelEntity()
 			{}
