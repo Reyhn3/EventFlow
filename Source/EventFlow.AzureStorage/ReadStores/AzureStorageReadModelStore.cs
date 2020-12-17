@@ -24,6 +24,10 @@ namespace EventFlow.AzureStorage.ReadStores
 		where TReadModel : class, IReadModel
 	{
 		private static readonly string ReadModelName = typeof(TReadModel).PrettyPrint();
+		private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
+			{
+				ContractResolver = new PrivateContractResolver()
+			};
 
 		private readonly IAzureStorageFactory _azureStorageFactory;
 		private readonly IReadModelFactory<TReadModel> _readModelFactory;
@@ -306,7 +310,7 @@ namespace EventFlow.AzureStorage.ReadStores
 		// ReSharper disable once UnusedParameter.Local
 		private static Task<ReadModelEnvelope<TReadModel>> CreateEnvelopeAsync(ReadModelEntity entity, CancellationToken cancellationToken)
 		{
-			var readModel = JsonConvert.DeserializeObject<TReadModel>(entity.Data);
+			var readModel = JsonConvert.DeserializeObject<TReadModel>(entity.Data, JsonSettings);
 			var readModelVersion = entity.Version;
 			var readModelEnvelope = ReadModelEnvelope<TReadModel>.With(entity.RowKey, readModel, readModelVersion);
 			return Task.FromResult(readModelEnvelope);
