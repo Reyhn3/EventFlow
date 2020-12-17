@@ -26,9 +26,10 @@ namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 		{
 			var resolver = EventFlowOptions.New
 				.RegisterModule<Module>()
-				.UseAzureStorageReadModel<FundReadModel>()
 				.UseAzureStorage()
 				.UseAzureStorageEventStore()
+				.UseAzureStorageReadModel<FundReadModel>()
+//TODO: Move the configuration into the UseAzureStorage.
 				.ConfigureAzureStorage(new AzureStorageConfiguration
 					{
 						StorageAccountConnectionString = "UseDevelopmentStorage=true",

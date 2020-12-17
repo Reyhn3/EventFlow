@@ -118,15 +118,20 @@ namespace EventFlow.AzureStorage.ReadStores
 						},
 					null);
 
-//TODO: Make sure this updates the version number.
 			var updatedContexts = contexts
 				.ApplyOrExcludeAsync(async c =>
 					{
+						// This action returns a new ReadModelEnvelope that references
+						// the same TReadModel, which has now been updated.
 						var readModelUpdateResult = await updateReadModel(
 							c.ReadModelContext,
 							c.ReadModelUpdate.DomainEvents,
 							c.ReadModelEnvelope,
 							cancellationToken).ConfigureAwait(false);
+
+						if (readModelUpdateResult.IsModified)
+							c.ReadModelEnvelope = readModelUpdateResult.Envelope;
+						
 						return readModelUpdateResult.IsModified;
 					}, cancellationToken);
 				
@@ -135,23 +140,29 @@ namespace EventFlow.AzureStorage.ReadStores
 
 		private async Task PersistReadModelsAsync(IAsyncEnumerable<ReadModelUpdateContext> contexts, CancellationToken cancellationToken)
 		{
+			var table = _azureStorageFactory.CreateTableReferenceForReadStore();
 			var batches = contexts.Batch(TableConstants.TableServiceBatchMaximumOperations);
 			await foreach (var batch in batches.WithCancellation(cancellationToken).ConfigureAwait(false))
 			{
-//TODO: Make sure to use the updated entities!
 				var operation = new TableBatchOperation();
-				await batch
-					.ForEachAsync(
-						c => operation
-							.Add(c.ReadModelContext.IsMarkedForDeletion
-									? TableOperation.Delete(c.ReadModelEntity)
-									: TableOperation.InsertOrReplace(c.ReadModelEntity)
-								),
-						cancellationToken)
-					.ConfigureAwait(false);
+				await batch.ForEachAsync(c => operation.Add(CreateEntityOperation(c)), cancellationToken).ConfigureAwait(false);
+				await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
 			}
-			
-//TODO: Run the operation.
+
+			static TableOperation CreateEntityOperation(ReadModelUpdateContext context)
+			{
+				var (partitionKey, rowKey) = GetKeys(context.ReadModelId);
+				
+				if (context.ReadModelContext.IsMarkedForDeletion)
+					return TableOperation.Delete(new ReadModelEntity(partitionKey, rowKey));
+
+				var data = SerializeReadModel(context.ReadModelEnvelope.ReadModel);
+				var entity = context.ReadModelEntity ?? new ReadModelEntity(partitionKey, rowKey);
+				entity.Data = data;
+				entity.Version = context.ReadModelEnvelope.Version ?? 0;
+				entity.ReadModelType = ReadModelName;
+				return TableOperation.InsertOrReplace(entity);
+			}
 		}
 
 //TODO: Consider using EntityResolver to store TReadModel directly. https://docs.microsoft.com/en-us/archive/blogs/windowsazurestorage/windows-azure-storage-client-library-2-0-tables-deep-dive#nosql
@@ -308,6 +319,12 @@ namespace EventFlow.AzureStorage.ReadStores
 			return readModelEnvelope;
 		}
 
+		private static string SerializeReadModel(TReadModel readModel)
+		{
+			var json = JsonConvert.SerializeObject(readModel, Formatting.Indented);
+			return json;
+		}
+
 
 		private class ReadModelUpdateContext
 		{
@@ -326,7 +343,7 @@ namespace EventFlow.AzureStorage.ReadStores
 			public string ReadModelId => ReadModelUpdate.ReadModelId;
 			public ReadModelUpdate ReadModelUpdate { get; }
 			public ReadModelEntity ReadModelEntity { get; }
-			public ReadModelEnvelope<TReadModel> ReadModelEnvelope { get; }
+			public ReadModelEnvelope<TReadModel> ReadModelEnvelope { get; set; }
 			public IReadModelContext ReadModelContext { get; }
 		}
 
