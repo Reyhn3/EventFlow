@@ -30,7 +30,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.Domain.Queries
 		public async Task<decimal> ExecuteQueryAsync(GetCurrentFundShareQuantity query, CancellationToken cancellationToken)
 		{
 			var readModels = await _readStore.GetAsync(query.FundId, cancellationToken).ConfigureAwait(false);
-			return readModels.ReadModel?.State.Quantity ?? decimal.Zero;
+			return readModels.ReadModel?.Quantity ?? decimal.Zero;
 		}
 	}
 }

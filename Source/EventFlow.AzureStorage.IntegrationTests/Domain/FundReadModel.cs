@@ -9,17 +9,16 @@ namespace EventFlow.AzureStorage.IntegrationTests.Domain
 		IAmReadModelFor<FundAggregate, FundId, FundSharesBought>,
 		IAmReadModelFor<FundAggregate, FundId, FundSharesSold>
 	{
-		public FundId Id { get; set; }
-		public FundState State { get; } = new FundState();
+		public decimal Quantity { get; private set; }
 
 		public void Apply(IReadModelContext context, IDomainEvent<FundAggregate, FundId, FundSharesBought> domainEvent)
 		{
-			State.Apply(domainEvent.AggregateEvent);
+			Quantity += domainEvent.AggregateEvent.Quantity.Value;
 		}
 
 		public void Apply(IReadModelContext context, IDomainEvent<FundAggregate, FundId, FundSharesSold> domainEvent)
 		{
-			State.Apply(domainEvent.AggregateEvent);
+			Quantity -= domainEvent.AggregateEvent.Quantity.Value;
 		}
 	}
 }
