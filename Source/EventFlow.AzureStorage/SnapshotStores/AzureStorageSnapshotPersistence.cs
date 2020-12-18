@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.AzureStorage.Connection;
+using EventFlow.AzureStorage.Extensions;
 using EventFlow.Core;
 using EventFlow.Extensions;
 using EventFlow.Logs;
@@ -43,7 +44,10 @@ namespace EventFlow.AzureStorage.SnapshotStores
 			var entity = result.SingleOrDefault();
 
 			if (entity == null)
-				return null;
+			{
+				_log.Verbose("Found no snapshot for aggregate of type {0} with identity {1}", aggregateType, identity);
+				return Task.FromResult((CommittedSnapshot)null);
+			}
 
 			var snapshot = new CommittedSnapshot(entity.Metadata, entity.Data);
 			return Task.FromResult(snapshot);
@@ -68,10 +72,34 @@ namespace EventFlow.AzureStorage.SnapshotStores
 			var operation = TableOperation.InsertOrReplace(entity);
 			var table = _azureStorageFactory.CreateTableReferenceForSnapshotStore();
 			await table.ExecuteAsync(operation, cancellationToken).ConfigureAwait(false);
+			_log.Debug("Created snapshot for aggregate of type {0} with identity {1}", aggregateType, identity);
 		}
 
-		public Task DeleteSnapshotAsync(Type aggregateType, IIdentity identity, CancellationToken cancellationToken)
-			=> throw new NotImplementedException();
+		public async Task DeleteSnapshotAsync(Type aggregateType, IIdentity identity, CancellationToken cancellationToken)
+		{
+			var partitionKey = GetPartitionKey(aggregateType, identity);
+			var filter = TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.Equal, partitionKey);
+			var query = new TableQuery().Where(filter).Select(new[] {TableConstants.PartitionKey, TableConstants.RowKey});
+			var table = _azureStorageFactory.CreateTableReferenceForSnapshotStore();
+			
+			TableContinuationToken token = null;
+			do
+			{
+				var resultSegment = await table.ExecuteQuerySegmentedAsync(query, token, cancellationToken).ConfigureAwait(false);
+				token = resultSegment.ContinuationToken;
+
+				var chunks = resultSegment.Results.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
+				foreach (var chunk in chunks)
+				{
+					var operation = new TableBatchOperation();
+					foreach (var entity in chunk)
+						operation.Delete(entity);
+
+					await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
+					_log.Verbose("Deleted {0} snapshot entities for aggregate of type {1} with identity {2}", operation.Count, aggregateType, identity);
+				}
+			} while (token != null);
+		}
 
 		public Task PurgeSnapshotsAsync(Type aggregateType, CancellationToken cancellationToken)
 			=> throw new NotImplementedException();

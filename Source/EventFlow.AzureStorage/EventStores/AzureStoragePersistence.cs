@@ -154,7 +154,7 @@ namespace EventFlow.AzureStorage.EventStores
 		public async Task DeleteEventsAsync(IIdentity id, CancellationToken cancellationToken)
 		{
 			var filter = TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.Equal, id.Value);
-			var query = new TableQuery().Where(filter).Select(new[] {TableConstants.RowKey});
+			var query = new TableQuery().Where(filter).Select(new[] {TableConstants.PartitionKey, TableConstants.RowKey});
 			var table = _factory.CreateTableReferenceForEventStore();
 
 			TableContinuationToken token = null;

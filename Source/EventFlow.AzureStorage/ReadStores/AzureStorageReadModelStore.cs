@@ -43,6 +43,7 @@ namespace EventFlow.AzureStorage.ReadStores
 		public async Task DeleteAsync(string id, CancellationToken cancellationToken)
 		{
 			var (partitionKey, rowKey) = GetKeys(id);
+//TODO: Don't retrieve - create entity from PK/RK.			
 			var retrieveOperation = TableOperation.Retrieve<ReadModelEntity>(partitionKey, rowKey);
 			var table = _azureStorageFactory.CreateTableReferenceForReadStore();
 			var result = await table.ExecuteAsync(retrieveOperation, cancellationToken).ConfigureAwait(false);

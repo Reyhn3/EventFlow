@@ -69,5 +69,40 @@ namespace EventFlow.AzureStorage.IntegrationTests.SnapshotStores
 			result.ShouldNotBeNull();
 			result.SerializedData.ShouldBe("test-data-v2");
 		}
+
+		[Test]
+		public async Task DeleteSnapshotAsync_shall_delete_all_snapshots_for_the_specified_aggregate_and_id()
+		{
+			var aggregateType = typeof(FundAggregate);
+			var identityA = new FundId("test-fund-delete-a");
+			var identityB = new FundId("test-fund-delete-b");
+
+			
+			// Arrange
+			var snapshot1 = new SerializedSnapshot("test-metadata", "test-data-v1", new SnapshotMetadata {AggregateSequenceNumber = 1});
+			await _target.SetSnapshotAsync(aggregateType, identityA, snapshot1, CancellationToken.None);
+
+			var snapshot2 = new SerializedSnapshot("test-metadata", "test-data-v2", new SnapshotMetadata {AggregateSequenceNumber = 2});
+			await _target.SetSnapshotAsync(aggregateType, identityA, snapshot2, CancellationToken.None);
+
+			var snapshot3 = new SerializedSnapshot("test-metadata", "test-data-v1", new SnapshotMetadata {AggregateSequenceNumber = 1});
+			await _target.SetSnapshotAsync(aggregateType, identityB, snapshot3, CancellationToken.None);
+
+			var confirmSetupA = await _target.GetSnapshotAsync(aggregateType, identityA, CancellationToken.None);
+			confirmSetupA.ShouldNotBeNull();
+			var confirmSetupB = await _target.GetSnapshotAsync(aggregateType, identityB, CancellationToken.None);
+			confirmSetupB.ShouldNotBeNull();
+			
+
+			// Act
+			await _target.DeleteSnapshotAsync(aggregateType, identityA, CancellationToken.None);
+			
+			
+			// Assert
+			var resultA = await _target.GetSnapshotAsync(aggregateType, identityA, CancellationToken.None);
+			resultA.ShouldBeNull();
+			var resultB = await _target.GetSnapshotAsync(aggregateType, identityB, CancellationToken.None);
+			resultB.ShouldNotBeNull();
+		}
 	}
 }
