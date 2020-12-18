@@ -8,14 +8,14 @@ namespace EventFlow.AzureStorage.Extensions
 {
 	public static class EventFlowOptionsAzureStorageReadStoreExtensions
 	{
-		public static IEventFlowOptions UseAzureStorageReadModel<TReadModel, TReadModelLocator>(this IEventFlowOptions eventFlowOptions)
+		public static IEventFlowOptions UseAzureStorageReadModelFor<TReadModel, TReadModelLocator>(this IEventFlowOptions eventFlowOptions)
 			where TReadModel : class, IReadModel
 			where TReadModelLocator : IReadModelLocator
 			=> eventFlowOptions
 				.RegisterServices(RegisterAzureStorageReadStore<TReadModel>)
 				.UseReadStoreFor<IAzureStorageReadModelStore<TReadModel>, TReadModel, TReadModelLocator>();
 
-		public static IEventFlowOptions UseAzureStorageReadModel<TReadModel>(this IEventFlowOptions eventFlowOptions)
+		public static IEventFlowOptions UseAzureStorageReadModelFor<TReadModel>(this IEventFlowOptions eventFlowOptions)
 			where TReadModel : class, IReadModel
 			=> eventFlowOptions
 				.RegisterServices(RegisterAzureStorageReadStore<TReadModel>)
