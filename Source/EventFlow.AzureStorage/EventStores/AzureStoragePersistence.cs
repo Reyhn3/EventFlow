@@ -23,6 +23,7 @@ namespace EventFlow.AzureStorage.EventStores
 	///		effectively isolating each aggregate into its own partition, which facilitates querying and maintenance.
 	///		The <c>RowKey</c> is set to a sortable representation of the <see cref="ISerializedEvent.AggregateSequenceNumber"/>.
 	/// </remarks>
+//TODO: Rename to AzureStorageEventPersistence.
 	public class AzureStoragePersistence : IEventPersistence
 	{
 		/// <summary>
@@ -94,6 +95,7 @@ namespace EventFlow.AzureStorage.EventStores
 				return Array.Empty<ICommittedDomainEvent>();
 
 			var entityTask = await Task.WhenAll(serializedEvents
+//TODO: Investigate if IIdentity is globally unique, or scoped per aggregate. If the latter, the PK/RK-scheme must be changed or there will be namespace conflicts.
 					.Select(async e => new EventDataEntity(id.Value, e.AggregateSequenceNumber.ToString(RowKeyFormatString))
 						{
 							EventName = e.Metadata.EventName,
@@ -183,13 +185,18 @@ namespace EventFlow.AzureStorage.EventStores
 				: base(partitionKey, rowKey)
 			{}
 
-			public string EventName { get; set; }
-			public string AggregateId { get; set; }
+			public long GlobalSequenceNumber { get; set; }
 			public string AggregateName { get; set; }
+			public string EventName { get; set; }
+		
+//TODO: Remove, as it is redundant given the current partitioning strategy.
+			public string AggregateId { get; set; }
+			
+//TODO: Remove, as it is redundant given the current partitioning strategy.
 			public int AggregateSequenceNumber { get; set; }
+			
 			public string Data { get; set; }
 			public string Metadata { get; set; }
-			public long GlobalSequenceNumber { get; set; }
 			public Guid BatchId { get; set; }
 
 			public CommittedDomainEvent ToDomainEvent()

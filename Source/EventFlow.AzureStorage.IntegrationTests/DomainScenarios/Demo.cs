@@ -28,6 +28,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 				.RegisterModule<Module>()
 				.UseAzureStorage()
 				.UseAzureStorageEventStore()
+				.UseAzureStorageSnapshotStore()
 				.UseAzureStorageReadModelFor<FundReadModel>()
 //TODO: Move the configuration into the UseAzureStorage.
 				.ConfigureAzureStorage(new AzureStorageConfiguration

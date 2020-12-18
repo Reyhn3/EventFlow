@@ -10,5 +10,6 @@
 		
 		string EventStoreTableName { get; }
 		string ReadStoreTableName { get; }
+		string SnapshotStoreTableName { get; }
 	}
 }

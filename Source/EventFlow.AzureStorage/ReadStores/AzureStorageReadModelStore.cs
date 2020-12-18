@@ -361,6 +361,7 @@ namespace EventFlow.AzureStorage.ReadStores
 				: base(partitionKey, rowKey)
 			{}
 
+//TODO: Remove, as it is redundant given the current partitioning strategy.
 			public string ReadModelType { get; set; }
 			public long Version { get; set; }
 			public string Data { get; set; }

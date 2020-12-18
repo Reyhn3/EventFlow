@@ -40,6 +40,10 @@ namespace EventFlow.AzureStorage.Connection
 				if (!readStore.Exists())
 					await readStore.CreateIfNotExistsAsync().ConfigureAwait(false);
 
+				var snapshotStore = CreateTableReferenceForSnapshotStore();
+				if (!snapshotStore.Exists())
+					await snapshotStore.CreateIfNotExistsAsync().ConfigureAwait(false);
+
 				var container = CreateBlobContainerClient();
 				if (!await container.ExistsAsync().ConfigureAwait(false))
 					await container.CreateIfNotExistsAsync().ConfigureAwait(false);
@@ -57,6 +61,9 @@ namespace EventFlow.AzureStorage.Connection
 
 		public CloudTable CreateTableReferenceForReadStore()
 			=> CreateTableReference(_configuration.ReadStoreTableName);
+
+		public CloudTable CreateTableReferenceForSnapshotStore()
+			=> CreateTableReference(_configuration.SnapshotStoreTableName);
 
 		private CloudTable CreateTableReference(string tableName)
 		{

@@ -12,5 +12,6 @@
 //TODO: Add XML-docs describing allowed names (also for the system container).
 		public string EventStoreTableName { get; set; } = "EventFlowEvents";
 		public string ReadStoreTableName { get; set; } = "EventFlowReadModels";
+		public string SnapshotStoreTableName { get; set; } = "EventFlowSnapshots";
 	}
 }
