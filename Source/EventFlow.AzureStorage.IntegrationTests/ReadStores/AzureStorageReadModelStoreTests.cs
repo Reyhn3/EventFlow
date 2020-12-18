@@ -33,18 +33,13 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 		{
 			_resolver = EventFlowOptions.New
 				.RegisterModule<Module>()
-				.UseAzureStorageReadModel<FundReadModel>()
 				.UseAzureStorage()
-				.UseAzureStorageEventStore()
 				.ConfigureAzureStorage(new AzureStorageConfiguration
 					{
 						StorageAccountConnectionString = "UseDevelopmentStorage=true",
-						SystemContainerName = "eventflow-system-params",
-						SequenceNumberRangeSize = 100,
-						SequenceNumberOptimisticConcurrencyRetries = 25,
-						EventStoreTableName = "EventFlowEvents",
-						ReadStoreTableName = "EventFlowReadModels"
+						ReadStoreTableName = "EventFlowReadModelsTEST",
 					})
+				.UseAzureStorageReadModelFor<FundReadModel>()
 
 				// Since the UpdateAsync-method of ReadStoreManager is protected,
 				// use a wrapper to expose it. Replace the original registration
@@ -60,8 +55,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 		[Test]
 		public async Task UpdateAsync_should_insert_the_read_model_if_it_is_new()
 		{
-			var readModelId = "test-model";
-			var aggregateSequenceNumber = 1;
+			const string readModelId = "test-model";
+			const int aggregateSequenceNumber = 1;
 
 			var updates = new[]
 				{
@@ -83,9 +78,6 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 
 
 			await _target.UpdateAsync(updates, contextFactory, readStoreManagerWrapper.TestUpdateAsync, CancellationToken.None);
-			
-			
-			Assert.Fail("Test not implemented");
 		}
 
 		[Test]

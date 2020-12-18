@@ -33,11 +33,12 @@ namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 				.ConfigureAzureStorage(new AzureStorageConfiguration
 					{
 						StorageAccountConnectionString = "UseDevelopmentStorage=true",
-						SystemContainerName = "eventflow-system-params",
+						SystemContainerName = "eventflow-system-params-demo",
 						SequenceNumberRangeSize = 100,
 						SequenceNumberOptimisticConcurrencyRetries = 25,
-						EventStoreTableName = "EventFlowEvents",
-						ReadStoreTableName = "EventFlowReadModels"
+						EventStoreTableName = "EventFlowEventsDEMO",
+						ReadStoreTableName = "EventFlowReadModelsDEMO",
+						SnapshotStoreTableName = "EventFlowSnapshotsDEMO"
 					})
 				.CreateResolver();
 
