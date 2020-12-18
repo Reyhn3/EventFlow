@@ -61,5 +61,13 @@ namespace EventFlow.AzureStorage.IntegrationTests.SnapshotStores
 			var snapshot2 = new SerializedSnapshot("test-metadata", "test-data-v1-modified", new SnapshotMetadata {AggregateSequenceNumber = 1});
 			await _target.SetSnapshotAsync(typeof(FundAggregate), new FundId("test-fund-b"), snapshot2, CancellationToken.None);
 		}
+
+		[Test]
+		public async Task GetSnapshotAsync_should_retrieve_the_latest_snapshot()
+		{
+			var result = await _target.GetSnapshotAsync(typeof(FundAggregate), new FundId("test-fund-a"), CancellationToken.None);
+			result.ShouldNotBeNull();
+			result.SerializedData.ShouldBe("test-data-v2");
+		}
 	}
 }
