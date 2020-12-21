@@ -153,7 +153,7 @@ namespace EventFlow.AzureStorage.SnapshotStores
 		public async Task PurgeSnapshotsAsync(CancellationToken cancellationToken)
 		{
 			var query = new TableQuery().Select(new[] {TableConstants.PartitionKey, TableConstants.RowKey});
-			var table = _azureStorageFactory.CreateTableReferenceForReadStore();
+			var table = _azureStorageFactory.CreateTableReferenceForSnapshotStore();
 
 			TableContinuationToken token = null;
 			do
