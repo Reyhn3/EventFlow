@@ -53,6 +53,7 @@ namespace EventFlow.AzureStorage.EventStores
 			var results = new List<EventDataEntity>();
 			TableQuery<EventDataEntity> query;
 
+//TODO: Make sure Take is actually paging.
 			if (globalPosition.IsStart)
 			{
 				query = new TableQuery<EventDataEntity>().Take(pageSize);
@@ -115,7 +116,7 @@ namespace EventFlow.AzureStorage.EventStores
 //TODO: This should batch in case there are many events.
 			var operation = new TableBatchOperation();
 			foreach (var entity in entities)
-				operation.Add(TableOperation.Insert(entity));
+				operation.Insert(entity);
 
 			var table = _factory.CreateTableReferenceForEventStore();
 			await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);

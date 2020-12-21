@@ -24,6 +24,13 @@ namespace EventFlow.AzureStorage.SnapshotStores
 		/// </summary>
 		private const string RowKeyFormatString = "D10";
 
+		/// <summary>
+		/// Since the partition key is a compound between the aggregate name and its identifier,
+		/// and since the aggregate name is commonly a C# type name, use a separator that is not
+		/// commonly used in a class name.
+		/// </summary>
+		private const string PartitionKeySeparator = "::";
+
 		private readonly IAzureStorageFactory _azureStorageFactory;
 		private readonly ILog _log;
 
@@ -100,19 +107,78 @@ namespace EventFlow.AzureStorage.SnapshotStores
 				}
 			} while (token != null);
 		}
+		
+		public async Task PurgeSnapshotsAsync(Type aggregateType, CancellationToken cancellationToken)
+		{
+			// Construct a query that finds all entities that have a PartitionKey that
+			// begins with the aggregate name and the separator. This is done by a
+			// range comparison on the PartitionKey string.
+			// For example, if we want to find anything that begins with "abc",
+			// check for any string that is >= "abc", and < "abd". That will find
+			// e.g. "abc0", "abcasdasdasd" etc.
+			var partitionKey = GetPartitionKey(aggregateType, null);
+			var partitionKeyMatch = partitionKey.Substring(0, partitionKey.IndexOf(PartitionKeySeparator) + PartitionKeySeparator.Length);
+			var partitionKeyLength = partitionKeyMatch.Length - 1;
+			var lastChar = partitionKeyMatch[partitionKeyLength];
+			var nextLastChar = (char)(lastChar + 1);
+			var partitionKeyStart = partitionKeyMatch;
+			var partitionKeyEnd = partitionKeyMatch.Substring(0, partitionKeyLength) + nextLastChar;
+			var filter = TableQuery.CombineFilters(
+					TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.GreaterThanOrEqual, partitionKeyStart),
+					TableOperators.And,
+					TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.LessThan, partitionKeyEnd)
+				);
+			var query = new TableQuery().Where(filter).Select(new[] {TableConstants.PartitionKey, TableConstants.RowKey});
+			var table = _azureStorageFactory.CreateTableReferenceForSnapshotStore();
+			
+			TableContinuationToken token = null;
+			do
+			{
+				var resultSegment = await table.ExecuteQuerySegmentedAsync(query, token, cancellationToken).ConfigureAwait(false);
+				token = resultSegment.ContinuationToken;
 
-		public Task PurgeSnapshotsAsync(Type aggregateType, CancellationToken cancellationToken)
-			=> throw new NotImplementedException();
+				var chunks = resultSegment.Results.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
+				foreach (var chunk in chunks)
+				{
+					var operation = new TableBatchOperation();
+					foreach (var entity in chunk)
+						operation.Delete(entity);
 
-		public Task PurgeSnapshotsAsync(CancellationToken cancellationToken)
-			=> throw new NotImplementedException();
+					await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
+					_log.Verbose("Purged {0} snapshot entities for aggregate of type {1}", operation.Count, aggregateType);
+				}
+			} while (token != null);
+		}
 
+		public async Task PurgeSnapshotsAsync(CancellationToken cancellationToken)
+		{
+			var query = new TableQuery().Select(new[] {TableConstants.PartitionKey, TableConstants.RowKey});
+			var table = _azureStorageFactory.CreateTableReferenceForReadStore();
+
+			TableContinuationToken token = null;
+			do
+			{
+				var resultSegment = await table.ExecuteQuerySegmentedAsync(query, token, cancellationToken).ConfigureAwait(false);
+				token = resultSegment.ContinuationToken;
+
+				var chunks = resultSegment.Results.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
+				foreach (var chunk in chunks)
+				{
+					var operation = new TableBatchOperation();
+					foreach (var entity in chunk)
+						operation.Delete(entity);
+
+					await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
+					_log.Verbose("Purged {0} snapshot entities", operation.Count);
+				}
+			} while (token != null);
+		}
+		
 		private static (string partitionKey, string rowKey) GetKeys(Type aggregateType, IIdentity aggregateIdentity, int aggregateSequenceNumber)
 			=> (GetPartitionKey(aggregateType, aggregateIdentity), GetRowKey(aggregateSequenceNumber));
 
-
 		/// <summary>
-		///     The partition key is a combination of the aggregate's type and identity, separated by a <c>_</c>.
+		///     The partition key is a combination of the aggregate's type and identity, separated by the <see cref="PartitionKeySeparator"/>.
 		/// </summary>
 		/// <param name="aggregateType">The type of the aggregate</param>
 		/// <param name="aggregateIdentity">The identity of the aggregate</param>
@@ -122,7 +188,7 @@ namespace EventFlow.AzureStorage.SnapshotStores
 		///     much more efficient.
 		/// </remarks>
 		internal static string GetPartitionKey(Type aggregateType, IIdentity aggregateIdentity)
-			=> $"{aggregateType.GetAggregateName().Value}_{aggregateIdentity.Value}";
+			=> $"{aggregateType.GetAggregateName().Value}{PartitionKeySeparator}{aggregateIdentity?.Value}";
 
 		/// <summary>
 		///     The row key is the aggregate sequence number in reverse order.

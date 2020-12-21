@@ -1,5 +1,6 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using EventFlow.Aggregates;
 using EventFlow.AzureStorage.Config;
 using EventFlow.AzureStorage.Extensions;
 using EventFlow.AzureStorage.IntegrationTests.Domain;
@@ -9,6 +10,7 @@ using EventFlow.Extensions;
 using EventFlow.Snapshots;
 using EventFlow.Snapshots.Stores;
 using EventFlow.TestHelpers;
+using FakeItEasy;
 using NUnit.Framework;
 using Shouldly;
 
@@ -96,6 +98,39 @@ namespace EventFlow.AzureStorage.IntegrationTests.SnapshotStores
 
 			// Act
 			await _target.DeleteSnapshotAsync(aggregateType, identityA, CancellationToken.None);
+			
+			
+			// Assert
+			var resultA = await _target.GetSnapshotAsync(aggregateType, identityA, CancellationToken.None);
+			resultA.ShouldBeNull();
+			var resultB = await _target.GetSnapshotAsync(aggregateType, identityB, CancellationToken.None);
+			resultB.ShouldNotBeNull();
+		}
+
+		[Test]
+		public async Task PurgeSnapshotsAsync_shall_delete_all_snapshots_for_the_specified_aggregate()
+		{
+			var dummyAggregate = A.Fake<IAggregateRoot>();
+			var aggregateType = dummyAggregate.GetType();
+			var identityA = new FundId("test-fund-purge-a");
+			var identityB = new FundId("test-fund-purge-b");
+
+			
+			// Arrange
+			var snapshot1 = new SerializedSnapshot("test-metadata", "test-data-v1", new SnapshotMetadata {AggregateSequenceNumber = 1});
+			await _target.SetSnapshotAsync(aggregateType, identityA, snapshot1, CancellationToken.None);
+
+			var snapshot2 = new SerializedSnapshot("test-metadata", "test-data-v1", new SnapshotMetadata {AggregateSequenceNumber = 1});
+			await _target.SetSnapshotAsync(aggregateType, identityB, snapshot2, CancellationToken.None);
+
+			var confirmSetupA = await _target.GetSnapshotAsync(aggregateType, identityA, CancellationToken.None);
+			confirmSetupA.ShouldNotBeNull();
+			var confirmSetupB = await _target.GetSnapshotAsync(aggregateType, identityB, CancellationToken.None);
+			confirmSetupB.ShouldNotBeNull();
+			
+
+			// Act
+			await _target.PurgeSnapshotsAsync(aggregateType, CancellationToken.None);
 			
 			
 			// Assert

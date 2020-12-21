@@ -35,7 +35,21 @@ namespace EventFlow.AzureStorage.Tests.SnapshotStores
 
 			Console.WriteLine(result);
 			result.ShouldNotBeNull();
-			result.ShouldBe("DummyAggregate_123");
+			result.ShouldBe("DummyAggregate::123");
+		}
+
+		[Test]
+		public void GetPartitionKey_should_allow_null_as_identity()
+		{
+			var aggregate = A.Fake<IAggregateRoot>(f => f.WithAttributes(() => new AggregateNameAttribute("DummyAggregate")));
+
+
+			var result = AzureStorageSnapshotPersistence.GetPartitionKey(aggregate.GetType(), null);
+
+
+			Console.WriteLine(result);
+			result.ShouldNotBeNull();
+			result.ShouldBe("DummyAggregate::");
 		}
 
 		[Test(Description = "The int should be reversed by subtracting it from int.MaxValue, so the lowest number becomes the highest number etc")]
