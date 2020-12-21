@@ -134,18 +134,24 @@ namespace EventFlow.AzureStorage.SnapshotStores
 			TableContinuationToken token = null;
 			do
 			{
+//TODO: Investigate how many records this query can return. More than 1000?
+//TODO: Investigate rumored performance issues. https://github.com/Azure/azure-cosmos-table-dotnet/issues/52
 				var resultSegment = await table.ExecuteQuerySegmentedAsync(query, token, cancellationToken).ConfigureAwait(false);
 				token = resultSegment.ContinuationToken;
 
-				var chunks = resultSegment.Results.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
-				foreach (var chunk in chunks)
+				var groups = resultSegment.Results.GroupBy(r => r.PartitionKey);
+				foreach (var group in groups)
 				{
-					var operation = new TableBatchOperation();
-					foreach (var entity in chunk)
-						operation.Delete(entity);
+					var chunks = group.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
+					foreach (var chunk in chunks)
+					{
+						var operation = new TableBatchOperation();
+						foreach (var entity in chunk)
+							operation.Delete(entity);
 
-					await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
-					_log.Verbose("Purged {0} snapshot entities for aggregate of type {1}", operation.Count, aggregateType);
+						await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
+						_log.Verbose("Purged {0} snapshot entities for aggregate of type {1} with partition key {2}", operation.Count, aggregateType, group.Key);
+					}
 				}
 			} while (token != null);
 		}
@@ -161,15 +167,19 @@ namespace EventFlow.AzureStorage.SnapshotStores
 				var resultSegment = await table.ExecuteQuerySegmentedAsync(query, token, cancellationToken).ConfigureAwait(false);
 				token = resultSegment.ContinuationToken;
 
-				var chunks = resultSegment.Results.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
-				foreach (var chunk in chunks)
+				var groups = resultSegment.Results.GroupBy(r => r.PartitionKey);
+				foreach (var group in groups)
 				{
-					var operation = new TableBatchOperation();
-					foreach (var entity in chunk)
-						operation.Delete(entity);
+					var chunks = group.Batch(TableConstants.TableServiceBatchMaximumOperations, true);
+					foreach (var chunk in chunks)
+					{
+						var operation = new TableBatchOperation();
+						foreach (var entity in chunk)
+							operation.Delete(entity);
 
-					await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
-					_log.Verbose("Purged {0} snapshot entities", operation.Count);
+						await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
+						_log.Verbose("Purged {0} snapshot entities from partition key {1}", operation.Count, group.Key);
+					}
 				}
 			} while (token != null);
 		}

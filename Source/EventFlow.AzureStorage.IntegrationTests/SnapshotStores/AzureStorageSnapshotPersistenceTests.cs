@@ -19,10 +19,11 @@ namespace EventFlow.AzureStorage.IntegrationTests.SnapshotStores
 {
 	[Explicit("Intended for manual verification")]
 	[Category(Categories.Integration)]
+	[NonParallelizable]
 	public class AzureStorageSnapshotPersistenceTests
 	{
 		private IRootResolver _resolver;
-		private ISnapshotPersistence _target;
+		private AzureStorageSnapshotPersistence _target;
 
 		[SetUp]
 		public void PreRun()
@@ -39,8 +40,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.SnapshotStores
 				.UseInMemoryReadStoreFor<FundReadModel>()
 				.CreateResolver();
 
-			_target = _resolver.Resolve<ISnapshotPersistence>();
-			_target.ShouldBeOfType<AzureStorageSnapshotPersistence>();
+			_target = _resolver.Resolve<ISnapshotPersistence>() as AzureStorageSnapshotPersistence;
+			_target.ShouldNotBeNull();
 		}
 
 		[Test(Description = "The expected outcome is multiple snapshots for the same aggregate")]
@@ -137,7 +138,49 @@ namespace EventFlow.AzureStorage.IntegrationTests.SnapshotStores
 			var resultA = await _target.GetSnapshotAsync(aggregateType, identityA, CancellationToken.None);
 			resultA.ShouldBeNull();
 			var resultB = await _target.GetSnapshotAsync(aggregateType, identityB, CancellationToken.None);
-			resultB.ShouldNotBeNull();
+			resultB.ShouldBeNull();
+		}
+
+		[Test]
+		public async Task PurgeSnapshotsAsync_shall_delete_all_snapshots()
+		{
+			var dummyAggregate = A.Fake<IAggregateRoot>();
+			var aggregateTypeA = typeof(FundAggregate);
+			var aggregateTypeB = dummyAggregate.GetType();
+			var identityA = new FundId("test-fund-purgeall-a");
+			var identityB1 = new FundId("test-fund-purgeall-b");
+			var identityB2 = new FundId("test-fund-purgeall-c");
+
+			
+			// Arrange
+			var snapshot1 = new SerializedSnapshot("test-metadata", "test-data-v1", new SnapshotMetadata {AggregateSequenceNumber = 1});
+			await _target.SetSnapshotAsync(aggregateTypeA, identityA, snapshot1, CancellationToken.None);
+
+			var snapshot2 = new SerializedSnapshot("test-metadata", "test-data-v1", new SnapshotMetadata {AggregateSequenceNumber = 1});
+			await _target.SetSnapshotAsync(aggregateTypeB, identityB1, snapshot2, CancellationToken.None);
+
+			var snapshot3 = new SerializedSnapshot("test-metadata", "test-data-v1", new SnapshotMetadata {AggregateSequenceNumber = 1});
+			await _target.SetSnapshotAsync(aggregateTypeB, identityB2, snapshot3, CancellationToken.None);
+
+			var confirmSetupA = await _target.GetSnapshotAsync(aggregateTypeA, identityA, CancellationToken.None);
+			confirmSetupA.ShouldNotBeNull();
+			var confirmSetupB1 = await _target.GetSnapshotAsync(aggregateTypeB, identityB1, CancellationToken.None);
+			confirmSetupB1.ShouldNotBeNull();
+			var confirmSetupB2 = await _target.GetSnapshotAsync(aggregateTypeB, identityB2, CancellationToken.None);
+			confirmSetupB2.ShouldNotBeNull();
+			
+
+			// Act
+			await _target.PurgeSnapshotsAsync(CancellationToken.None);
+			
+			
+			// Assert
+			var resultA = await _target.GetSnapshotAsync(aggregateTypeA, identityA, CancellationToken.None);
+			resultA.ShouldBeNull();
+			var resultB1 = await _target.GetSnapshotAsync(aggregateTypeB, identityB1, CancellationToken.None);
+			resultB1.ShouldBeNull();
+			var resultB2 = await _target.GetSnapshotAsync(aggregateTypeB, identityB2, CancellationToken.None);
+			resultB2.ShouldBeNull();
 		}
 	}
 }
