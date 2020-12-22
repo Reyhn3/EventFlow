@@ -31,7 +31,7 @@ namespace EventFlow.AzureStorage.Config
 			azureStorageConfiguration ??= new AzureStorageConfiguration();
 			config ??= c => {};
 			config(azureStorageConfiguration);
-			
+
 			azureStorageConfiguration.Validate();
 
 			return eventFlowOptions
