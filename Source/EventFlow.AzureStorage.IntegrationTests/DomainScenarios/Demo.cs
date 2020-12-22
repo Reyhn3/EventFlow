@@ -25,11 +25,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 		{
 			var resolver = EventFlowOptions.New
 				.RegisterModule<Module>()
-				.UseAzureStorage()
-				.UseAzureStorageEventStore()
-				.UseAzureStorageSnapshotStore()
-				.UseAzureStorageReadModelFor<FundReadModel>()
-				.ConfigureAzureStorage(c =>
+				.UseAzureStorage(c =>
 					{
 						c.StorageAccountConnectionString = "UseDevelopmentStorage=true";
 						c.SystemContainerName = "eventflow-system-params-demo";
@@ -39,6 +35,9 @@ namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 						c.ReadStoreTableName = "EventFlowReadModelsDEMO";
 						c.SnapshotStoreTableName = "EventFlowSnapshotsDEMO";
 					})
+				.UseAzureStorageEventStore()
+				.UseAzureStorageSnapshotStore()
+				.UseAzureStorageReadModelFor<FundReadModel>()
 				.CreateResolver();
 
 			CommandBus = resolver.Resolve<ICommandBus>();

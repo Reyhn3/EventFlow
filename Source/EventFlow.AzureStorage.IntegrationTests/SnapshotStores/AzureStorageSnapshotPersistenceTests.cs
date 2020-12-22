@@ -29,13 +29,12 @@ namespace EventFlow.AzureStorage.IntegrationTests.SnapshotStores
 		{
 			_resolver = EventFlowOptions.New
 				.RegisterModule<Module>()
-				.UseAzureStorage()
-				.UseAzureStorageSnapshotStore()
-				.ConfigureAzureStorage(new AzureStorageConfiguration
+				.UseAzureStorage(c =>
 					{
-						StorageAccountConnectionString = "UseDevelopmentStorage=true",
-						SnapshotStoreTableName = "EventFlowSnapshotsTEST"
+						c.StorageAccountConnectionString = "UseDevelopmentStorage=true";
+						c.SnapshotStoreTableName = "EventFlowSnapshotsTEST";
 					})
+				.UseAzureStorageSnapshotStore()
 				.UseInMemoryReadStoreFor<FundReadModel>()
 				.CreateResolver();
 

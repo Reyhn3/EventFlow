@@ -32,11 +32,10 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 		{
 			_resolver = EventFlowOptions.New
 				.RegisterModule<Module>()
-				.UseAzureStorage()
-				.ConfigureAzureStorage(new AzureStorageConfiguration
+				.UseAzureStorage(c =>
 					{
-						StorageAccountConnectionString = "UseDevelopmentStorage=true",
-						ReadStoreTableName = "EventFlowReadModelsTEST",
+						c.StorageAccountConnectionString = "UseDevelopmentStorage=true";
+						c.ReadStoreTableName = "EventFlowReadModelsTEST";
 					})
 				.UseAzureStorageReadModelFor<FundReadModel>()
 

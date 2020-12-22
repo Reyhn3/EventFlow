@@ -8,37 +8,40 @@ namespace EventFlow.AzureStorage.Config
 {
 	public static class EventFlowOptionsAzureStorageExtensions
 	{
-		public static IEventFlowOptions UseAzureStorage(this IEventFlowOptions eventFlowOptions)
-		{
-			return eventFlowOptions
-				.RegisterServices(sr =>
-					{
-						sr.Register<IBootstrap, AzureStorageBootstrap>();
-						sr.Register<IUniqueIdGenerator, UniqueIdGenerator>(Lifetime.Singleton);
-						sr.Register<IOptimisticSyncStore, BlobOptimisticSyncStore>(Lifetime.Singleton);
-					});
-		}
+		public static IEventFlowOptions UseAzureStorage(
+			this IEventFlowOptions eventFlowOptions,
+			string storageAccountConnectionString)
+			=> UseAzureStorage(eventFlowOptions, new AzureStorageConfiguration {StorageAccountConnectionString = storageAccountConnectionString});
 
-		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, string storageAccountConnectionString)
-			=> ConfigureAzureStorage(eventFlowOptions, new AzureStorageConfiguration {StorageAccountConnectionString = storageAccountConnectionString});
+		public static IEventFlowOptions UseAzureStorage(
+			this IEventFlowOptions eventFlowOptions,
+			AzureStorageConfiguration azureStorageConfiguration)
+			=> UseAzureStorage(eventFlowOptions, azureStorageConfiguration, null);
 
-		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, AzureStorageConfiguration azureStorageConfiguration)
-			=> ConfigureAzureStorage(eventFlowOptions, azureStorageConfiguration, null);
+		public static IEventFlowOptions UseAzureStorage(
+			this IEventFlowOptions eventFlowOptions,
+			Action<AzureStorageConfiguration> config)
+			=> UseAzureStorage(eventFlowOptions, null, config);
 
-		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, Action<AzureStorageConfiguration> config)
-			=> ConfigureAzureStorage(eventFlowOptions, null, config);
-
-		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, AzureStorageConfiguration azureStorageConfiguration, Action<AzureStorageConfiguration> config)
+		private static IEventFlowOptions UseAzureStorage(
+			this IEventFlowOptions eventFlowOptions,
+			AzureStorageConfiguration azureStorageConfiguration,
+			Action<AzureStorageConfiguration> config)
 		{
 			azureStorageConfiguration ??= new AzureStorageConfiguration();
 			config ??= c => {};
 			config(azureStorageConfiguration);
+			
+			azureStorageConfiguration.Validate();
 
 			return eventFlowOptions
-				.RegisterServices(f =>
+				.RegisterServices(sr =>
 					{
-						f.Register<IAzureStorageFactory, AzureStorageFactory>();
-						f.Register(_ => azureStorageConfiguration, Lifetime.Singleton);
+						sr.Register(_ => azureStorageConfiguration, Lifetime.Singleton);
+						sr.Register<IAzureStorageFactory, AzureStorageFactory>();
+						sr.Register<IBootstrap, AzureStorageBootstrap>();
+						sr.Register<IUniqueIdGenerator, UniqueIdGenerator>(Lifetime.Singleton);
+						sr.Register<IOptimisticSyncStore, BlobOptimisticSyncStore>(Lifetime.Singleton);
 					});
 		}
 	}
