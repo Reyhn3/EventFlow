@@ -99,7 +99,7 @@ namespace EventFlow.AzureStorage.EventStores
 						{
 							EventName = e.Metadata.EventName,
 							AggregateId = id.Value,
-							AggregateName = e.Metadata[MetadataKeys.AggregateName],
+							AggregateName = e.Metadata.AggregateName,
 							AggregateSequenceNumber = e.AggregateSequenceNumber,
 							Data = e.SerializedData,
 							Metadata = e.SerializedMetadata,

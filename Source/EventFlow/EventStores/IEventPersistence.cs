@@ -37,6 +37,7 @@ namespace EventFlow.EventStores
 
         Task<IReadOnlyCollection<ICommittedDomainEvent>> CommitEventsAsync(
             IIdentity id,
+//TODO: Shouldn't this be ISerializedEvent?
             IReadOnlyCollection<SerializedEvent> serializedEvents,
             CancellationToken cancellationToken);
 
