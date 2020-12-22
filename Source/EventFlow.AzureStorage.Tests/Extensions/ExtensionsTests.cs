@@ -1,6 +1,5 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
-using EventFlow.AzureStorage.Extensions;
 using EventFlow.TestHelpers;
 using NUnit.Framework;
 using Shouldly;

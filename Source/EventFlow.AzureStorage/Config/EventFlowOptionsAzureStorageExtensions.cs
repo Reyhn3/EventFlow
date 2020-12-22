@@ -1,12 +1,10 @@
-﻿using EventFlow.AzureStorage.Config;
-using EventFlow.AzureStorage.Connection;
+﻿using EventFlow.AzureStorage.Connection;
 using EventFlow.AzureStorage.EventStores;
 using EventFlow.Configuration;
 
 
-namespace EventFlow.AzureStorage.Extensions
+namespace EventFlow.AzureStorage.Config
 {
-//TODO: Consider moving these registrations into the other extensions.
 	public static class EventFlowOptionsAzureStorageExtensions
 	{
 		public static IEventFlowOptions UseAzureStorage(this IEventFlowOptions eventFlowOptions)

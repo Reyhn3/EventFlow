@@ -210,15 +210,15 @@ namespace EventFlow.AzureStorage.Tests.ReadStores
 			var readModelIds = CreateReadModelIds(elements);
 
 
-			var result = _target.GroupByRunningLength(readModelIds, () => 1000, id => 1).ToArray();
+			var result = _target.GroupByRunningLength(readModelIds, () => 10000, id => 1).ToArray();
 
 
 			result.ShouldNotBeNull();
 			PrintGroupings(result);
 			result.Length.ShouldBe(3);
-			result[0].Count().ShouldBe(110);
-			result[1].Count().ShouldBe(110);
-			result[2].Count().ShouldBe(2);
+			result[0].Count().ShouldBe(100);
+			result[1].Count().ShouldBe(100);
+			result[2].Count().ShouldBe(22);
 		}
 	
 		private static int CalculateQueryFilterMaxLength() => 6;

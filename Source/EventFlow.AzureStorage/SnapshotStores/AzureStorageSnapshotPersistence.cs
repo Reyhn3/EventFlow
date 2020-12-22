@@ -3,7 +3,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.AzureStorage.Connection;
-using EventFlow.AzureStorage.Extensions;
 using EventFlow.Core;
 using EventFlow.Extensions;
 using EventFlow.Logs;
@@ -134,8 +133,6 @@ namespace EventFlow.AzureStorage.SnapshotStores
 			TableContinuationToken token = null;
 			do
 			{
-//TODO: Investigate how many records this query can return. More than 1000?
-//TODO: Investigate rumored performance issues. https://github.com/Azure/azure-cosmos-table-dotnet/issues/52
 				var resultSegment = await table.ExecuteQuerySegmentedAsync(query, token, cancellationToken).ConfigureAwait(false);
 				token = resultSegment.ContinuationToken;
 

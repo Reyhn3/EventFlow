@@ -11,12 +11,12 @@ namespace EventFlow.AzureStorage.Connection
 	public class AzureStorageFactory : IAzureStorageFactory
 	{
 		private const string GlobalSequenceNumberBlobName = "GlobalSequenceNumber";
-		
-		private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
-		private bool _isInitialized;
 
 		private readonly CloudStorageAccount _cloudStorageAccount;
 		private readonly IAzureStorageConfiguration _configuration;
+
+		private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
+		private bool _isInitialized;
 
 		public AzureStorageFactory(IAzureStorageConfiguration configuration)
 		{
@@ -65,6 +65,13 @@ namespace EventFlow.AzureStorage.Connection
 		public CloudTable CreateTableReferenceForSnapshotStore()
 			=> CreateTableReference(_configuration.SnapshotStoreTableName);
 
+		public BlobClient CreateBlobClientForSequenceNumber()
+		{
+			var container = CreateBlobContainerClient();
+			var client = container.GetBlobClient(GlobalSequenceNumberBlobName);
+			return client;
+		}
+
 		private CloudTable CreateTableReference(string tableName)
 		{
 			if (string.IsNullOrWhiteSpace(tableName))
@@ -73,13 +80,6 @@ namespace EventFlow.AzureStorage.Connection
 			var client = _cloudStorageAccount.CreateCloudTableClient();
 			var table = client.GetTableReference(tableName);
 			return table;
-		}
-
-		public BlobClient CreateBlobClientForSequenceNumber()
-		{
-			var container = CreateBlobContainerClient();
-			var client = container.GetBlobClient(GlobalSequenceNumberBlobName);
-			return client;
 		}
 
 		private BlobContainerClient CreateBlobContainerClient()

@@ -4,7 +4,7 @@ using EventFlow.Extensions;
 using EventFlow.ReadStores;
 
 
-namespace EventFlow.AzureStorage.Extensions
+namespace EventFlow.AzureStorage.Config
 {
 	public static class EventFlowOptionsAzureStorageReadStoreExtensions
 	{

@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.Aggregates;
 using EventFlow.AzureStorage.Connection;
-using EventFlow.AzureStorage.Extensions;
 using EventFlow.Core;
 using EventFlow.EventStores;
 using EventFlow.Logs;

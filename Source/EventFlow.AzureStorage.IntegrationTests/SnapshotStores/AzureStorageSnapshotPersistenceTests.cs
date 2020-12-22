@@ -2,7 +2,6 @@
 using System.Threading.Tasks;
 using EventFlow.Aggregates;
 using EventFlow.AzureStorage.Config;
-using EventFlow.AzureStorage.Extensions;
 using EventFlow.AzureStorage.IntegrationTests.Domain;
 using EventFlow.AzureStorage.SnapshotStores;
 using EventFlow.Configuration;

@@ -2,7 +2,7 @@
 using EventFlow.Extensions;
 
 
-namespace EventFlow.AzureStorage.Extensions
+namespace EventFlow.AzureStorage.Config
 {
 	public static class EventFlowOptionsAzureStorageSnapshotStoreExtensions
 	{

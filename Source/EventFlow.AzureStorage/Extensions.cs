@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 
-namespace EventFlow.AzureStorage.Extensions
+namespace EventFlow.AzureStorage
 {
 	internal static class Extensions
 	{

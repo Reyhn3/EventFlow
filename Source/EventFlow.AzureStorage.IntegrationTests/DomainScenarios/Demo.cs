@@ -1,5 +1,4 @@
 ﻿using EventFlow.AzureStorage.Config;
-using EventFlow.AzureStorage.Extensions;
 using EventFlow.AzureStorage.IntegrationTests.Domain;
 using EventFlow.Queries;
 using EventFlow.TestHelpers;

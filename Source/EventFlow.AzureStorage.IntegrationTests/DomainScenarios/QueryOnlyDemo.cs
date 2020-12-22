@@ -3,12 +3,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.AzureStorage.IntegrationTests.Domain;
 using EventFlow.AzureStorage.IntegrationTests.Domain.Queries;
+using EventFlow.TestHelpers;
 using NUnit.Framework;
 using Shouldly;
 
 
 namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 {
+	[Explicit("Intended for demonstration purposes")]
+	[Category(Categories.Integration)]
 	internal class QueryOnlyDemo : Demo
 	{
 		private static readonly FundId AggregateId = new FundId("a");
