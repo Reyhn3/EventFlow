@@ -29,16 +29,15 @@ namespace EventFlow.AzureStorage.IntegrationTests.DomainScenarios
 				.UseAzureStorageEventStore()
 				.UseAzureStorageSnapshotStore()
 				.UseAzureStorageReadModelFor<FundReadModel>()
-//TODO: Move the configuration into the UseAzureStorage.
-				.ConfigureAzureStorage(new AzureStorageConfiguration
+				.ConfigureAzureStorage(c =>
 					{
-						StorageAccountConnectionString = "UseDevelopmentStorage=true",
-						SystemContainerName = "eventflow-system-params-demo",
-						SequenceNumberRangeSize = 100,
-						SequenceNumberOptimisticConcurrencyRetries = 25,
-						EventStoreTableName = "EventFlowEventsDEMO",
-						ReadStoreTableName = "EventFlowReadModelsDEMO",
-						SnapshotStoreTableName = "EventFlowSnapshotsDEMO"
+						c.StorageAccountConnectionString = "UseDevelopmentStorage=true";
+						c.SystemContainerName = "eventflow-system-params-demo";
+						c.SequenceNumberRangeSize = 100;
+						c.SequenceNumberOptimisticConcurrencyRetries = 25;
+						c.EventStoreTableName = "EventFlowEventsDEMO";
+						c.ReadStoreTableName = "EventFlowReadModelsDEMO";
+						c.SnapshotStoreTableName = "EventFlowSnapshotsDEMO";
 					})
 				.CreateResolver();
 

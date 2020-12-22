@@ -1,4 +1,5 @@
-﻿using EventFlow.AzureStorage.Connection;
+﻿using System;
+using EventFlow.AzureStorage.Connection;
 using EventFlow.AzureStorage.EventStores;
 using EventFlow.Configuration;
 
@@ -18,8 +19,21 @@ namespace EventFlow.AzureStorage.Config
 					});
 		}
 
-		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, IAzureStorageConfiguration azureStorageConfiguration)
+		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, string storageAccountConnectionString)
+			=> ConfigureAzureStorage(eventFlowOptions, new AzureStorageConfiguration {StorageAccountConnectionString = storageAccountConnectionString});
+
+		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, AzureStorageConfiguration azureStorageConfiguration)
+			=> ConfigureAzureStorage(eventFlowOptions, azureStorageConfiguration, null);
+
+		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, Action<AzureStorageConfiguration> config)
+			=> ConfigureAzureStorage(eventFlowOptions, null, config);
+
+		public static IEventFlowOptions ConfigureAzureStorage(this IEventFlowOptions eventFlowOptions, AzureStorageConfiguration azureStorageConfiguration, Action<AzureStorageConfiguration> config)
 		{
+			azureStorageConfiguration ??= new AzureStorageConfiguration();
+			config ??= c => {};
+			config(azureStorageConfiguration);
+
 			return eventFlowOptions
 				.RegisterServices(f =>
 					{

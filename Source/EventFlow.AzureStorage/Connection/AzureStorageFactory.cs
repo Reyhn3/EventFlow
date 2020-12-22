@@ -13,12 +13,12 @@ namespace EventFlow.AzureStorage.Connection
 		private const string GlobalSequenceNumberBlobName = "GlobalSequenceNumber";
 
 		private readonly CloudStorageAccount _cloudStorageAccount;
-		private readonly IAzureStorageConfiguration _configuration;
+		private readonly AzureStorageConfiguration _configuration;
 
 		private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private bool _isInitialized;
 
-		public AzureStorageFactory(IAzureStorageConfiguration configuration)
+		public AzureStorageFactory(AzureStorageConfiguration configuration)
 		{
 			_configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 			_cloudStorageAccount = CloudStorageAccount.Parse(configuration.StorageAccountConnectionString);

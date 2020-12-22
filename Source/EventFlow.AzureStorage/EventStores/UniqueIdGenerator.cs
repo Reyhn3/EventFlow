@@ -22,7 +22,7 @@ namespace EventFlow.AzureStorage.EventStores
 		private long _lastId;
 		private long _upperLimit;
 
-		public UniqueIdGenerator(IAzureStorageConfiguration configuration, IOptimisticSyncStore optimisticSyncStore)
+		public UniqueIdGenerator(AzureStorageConfiguration configuration, IOptimisticSyncStore optimisticSyncStore)
 		{
 			_optimisticSyncStore = optimisticSyncStore;
 			_rangeSize = configuration.SequenceNumberRangeSize;

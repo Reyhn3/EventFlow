@@ -32,7 +32,7 @@ namespace EventFlow.AzureStorage.Tests.EventStores
 						.Returns(Task.FromResult(true));
 				}));
 
-			var config = A.Fake<IAzureStorageConfiguration>(f => f.ConfigureFake(ff => 
+			var config = A.Fake<AzureStorageConfiguration>(f => f.ConfigureFake(ff => 
 				A.CallTo(() => ff.SequenceNumberRangeSize)
 					.Returns(RangeSize)));
 			_target = new UniqueIdGenerator(config, _store);
