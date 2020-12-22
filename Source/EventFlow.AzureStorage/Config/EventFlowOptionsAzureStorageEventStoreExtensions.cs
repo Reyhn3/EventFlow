@@ -7,6 +7,6 @@ namespace EventFlow.AzureStorage.Config
 	public static class EventFlowOptionsAzureStorageEventStoreExtensions
 	{
 		public static IEventFlowOptions UseAzureStorageEventStore(this IEventFlowOptions eventFlowOptions)
-			=> eventFlowOptions.UseEventStore<AzureStoragePersistence>();
+			=> eventFlowOptions.UseEventStore<AzureStorageEventPersistence>();
 	}
 }

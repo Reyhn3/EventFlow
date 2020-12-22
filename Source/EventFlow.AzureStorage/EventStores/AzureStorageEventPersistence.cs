@@ -22,8 +22,7 @@ namespace EventFlow.AzureStorage.EventStores
 	///		effectively isolating each aggregate into its own partition, which facilitates querying and maintenance.
 	///		The <c>RowKey</c> is set to a sortable representation of the <see cref="ISerializedEvent.AggregateSequenceNumber"/>.
 	/// </remarks>
-//TODO: Rename to AzureStorageEventPersistence.
-	public class AzureStoragePersistence : IEventPersistence
+	public class AzureStorageEventPersistence : IEventPersistence
 	{
 		/// <summary>
 		///     The row key is an int, and its <see cref="int.MaxValue" /> is
@@ -36,7 +35,7 @@ namespace EventFlow.AzureStorage.EventStores
 		private readonly IAzureStorageFactory _factory;
 		private readonly IUniqueIdGenerator _uniqueIdGenerator;
 
-		public AzureStoragePersistence(ILog log, IAzureStorageFactory factory, IUniqueIdGenerator uniqueIdGenerator)
+		public AzureStorageEventPersistence(ILog log, IAzureStorageFactory factory, IUniqueIdGenerator uniqueIdGenerator)
 		{
 			_log = log ?? throw new ArgumentNullException(nameof(log));
 			_factory = factory ?? throw new ArgumentNullException(nameof(factory));
