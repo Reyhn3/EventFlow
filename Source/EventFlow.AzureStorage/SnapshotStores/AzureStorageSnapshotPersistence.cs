@@ -17,18 +17,18 @@ namespace EventFlow.AzureStorage.SnapshotStores
 	public class AzureStorageSnapshotPersistence : ISnapshotPersistence
 	{
 		/// <summary>
-		///     The row key is an int, and its <see cref="int.MaxValue" /> is
-		///     ten digits long. To enable efficient sorting and querying by
-		///     range, pad with leading zeros.
-		/// </summary>
-		private const string RowKeyFormatString = "D10";
-
-		/// <summary>
 		/// Since the partition key is a compound between the aggregate name and its identifier,
 		/// and since the aggregate name is commonly a C# type name, use a separator that is not
 		/// commonly used in a class name.
 		/// </summary>
 		private const string PartitionKeySeparator = "::";
+
+		/// <summary>
+		///     The row key is an int, and its <see cref="int.MaxValue" /> is
+		///     ten digits long. To enable efficient sorting and querying by
+		///     range, pad with leading zeros.
+		/// </summary>
+		private const string RowKeyFormatString = "D10";
 
 		private readonly IAzureStorageFactory _azureStorageFactory;
 		private readonly ILog _log;

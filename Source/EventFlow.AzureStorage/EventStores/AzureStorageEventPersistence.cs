@@ -174,6 +174,12 @@ namespace EventFlow.AzureStorage.EventStores
 			} while (token != null);
 		}
 
+		internal static string GetPartitionKey(string aggregateName, IIdentity aggregateIdentity)
+			=> aggregateIdentity?.Value;
+
+		internal static string GetRowKey(int aggregateSequenceNumber)
+			=> aggregateSequenceNumber.ToString(RowKeyFormatString);
+
 
 		private class EventDataEntity : TableEntity, ICommittedDomainEvent
 		{

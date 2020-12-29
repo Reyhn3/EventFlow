@@ -1,9 +1,7 @@
 ﻿using System;
 using EventFlow.Aggregates;
-using EventFlow.AzureStorage.Connection;
 using EventFlow.AzureStorage.SnapshotStores;
 using EventFlow.Core;
-using EventFlow.Logs;
 using EventFlow.TestHelpers;
 using FakeItEasy;
 using NUnit.Framework;
@@ -15,14 +13,6 @@ namespace EventFlow.AzureStorage.Tests.SnapshotStores
 	[Category(Categories.Unit)]
 	public class AzureStorageSnapshotPersistenceTests
 	{
-		private AzureStorageSnapshotPersistence _target;
-
-		[SetUp]
-		public void PreRun()
-		{
-			_target = new AzureStorageSnapshotPersistence(A.Dummy<ILog>(), A.Dummy<IAzureStorageFactory>());
-		}
-
 		[Test]
 		public void GetPartitionKey_should_combine_aggregate_type_with_aggregate_id()
 		{
