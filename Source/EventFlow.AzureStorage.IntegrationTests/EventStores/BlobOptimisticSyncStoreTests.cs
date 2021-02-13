@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
-using EventFlow.AzureStorage.Config;
-using EventFlow.AzureStorage.Connection;
 using EventFlow.AzureStorage.EventStores;
-using EventFlow.TestHelpers;
+using EventFlow.AzureStorage.IntegrationTests.Domain;
+using EventFlow.Extensions;
 using NUnit.Framework;
 using Shouldly;
 
@@ -11,23 +10,20 @@ using Shouldly;
 namespace EventFlow.AzureStorage.IntegrationTests.EventStores
 {
 	[Explicit("Intended for manual verification")]
-	[Category(Categories.Integration)]
-	public class BlobOptimisticSyncStoreTests
+	public class BlobOptimisticSyncStoreTests : IntegrationTests
 	{
 		private BlobOptimisticSyncStore _target;
+
+		public BlobOptimisticSyncStoreTests()
+			: base(o => { o.UseInMemoryReadStoreFor<FundReadModel>(); })
+		{}
 
 		[SetUp]
 		public async Task PreRun()
 		{
-			var config = new AzureStorageConfiguration
-				{
-					StorageAccountConnectionString = "UseDevelopmentStorage=true",
-					SystemContainerName = "eventflow-system-params-test"
-				};
-			var factory = new AzureStorageFactory(config);
-			await factory.InitializeAsync().ConfigureAwait(false);
-			_target = new BlobOptimisticSyncStore(factory);
-			await _target.InitializeAsync().ConfigureAwait(false);
+			var target = Resolver.Resolve<IOptimisticSyncStore>();
+			target.ShouldBeOfType<BlobOptimisticSyncStore>();
+			_target = target as BlobOptimisticSyncStore;
 		}
 
 		[Test]

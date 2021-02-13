@@ -15,7 +15,6 @@ using EventFlow.Core;
 using EventFlow.EventStores;
 using EventFlow.Logs;
 using EventFlow.ReadStores;
-using EventFlow.TestHelpers;
 using FakeItEasy;
 using Microsoft.Azure.Cosmos.Table;
 using Microsoft.Azure.Cosmos.Table.Protocol;
@@ -26,34 +25,31 @@ using Shouldly;
 namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 {
 	[Explicit("Intended for manual verification")]
-	[Category(Categories.Integration)]
-	public class AzureStorageReadModelStoreTests
+	public class AzureStorageReadModelStoreTests : IntegrationTests
 	{
 		private IReadModelStore<FundReadModel> _target;
-		private IRootResolver _resolver;
+
+		public AzureStorageReadModelStoreTests()
+			: base(o =>
+				{
+					o.UseAzureStorageReadModelFor<FundReadModel>();
+
+					// Since the UpdateAsync-method of ReadStoreManager is protected,
+					// use a wrapper to expose it. Replace the original registration
+					// with the wrapper.
+					o.RegisterServices(rs
+						=> rs.Register<IReadStoreManager<FundReadModel>,
+							ReadStoreManagerWrapper<FundAggregate, FundId, IAzureStorageReadModelStore<FundReadModel>, FundReadModel>>(
+							keepDefault: false));
+				})
+		{}
 
 		[SetUp]
 		public void PreRun()
 		{
-			_resolver = EventFlowOptions.New
-				.RegisterModule<Module>()
-				.UseAzureStorage(c =>
-					{
-						c.StorageAccountConnectionString = "UseDevelopmentStorage=true";
-						c.ReadStoreTableName = "EventFlowReadModelsTEST";
-					})
-				.UseAzureStorageReadModelFor<FundReadModel>()
-
-				// Since the UpdateAsync-method of ReadStoreManager is protected,
-				// use a wrapper to expose it. Replace the original registration
-				// with the wrapper.
-				.RegisterServices(rs
-					=> rs.Register<IReadStoreManager<FundReadModel>, ReadStoreManagerWrapper<FundAggregate, FundId, IAzureStorageReadModelStore<FundReadModel>, FundReadModel>>(
-						keepDefault: false))
-				.CreateResolver();
-
-			_target = _resolver.Resolve<IReadModelStore<FundReadModel>>();
-			_target.ShouldBeOfType<AzureStorageReadModelStore<FundReadModel>>();
+			var target = Resolver.Resolve<IReadModelStore<FundReadModel>>();
+			target.ShouldBeOfType<AzureStorageReadModelStore<FundReadModel>>();
+			_target = target;
 		}
 
 		[Test]
@@ -64,8 +60,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 			const string readModelId = "test-model-update-new";
 			const int aggregateSequenceNumber = 1;
 
-			var contextFactory = new ReadModelContextFactory(_resolver);
-			var readStoreManager = _resolver.Resolve<IReadStoreManager<FundReadModel>>();
+			var contextFactory = new ReadModelContextFactory(Resolver);
+			var readStoreManager = Resolver.Resolve<IReadStoreManager<FundReadModel>>();
 			var readStoreManagerWrapper = readStoreManager as ReadStoreManagerWrapper<FundAggregate, FundId, IAzureStorageReadModelStore<FundReadModel>, FundReadModel>;
 
 			var updates = new[]
@@ -104,8 +100,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 
 			const string readModelId = "test-model-update-existing";
 
-			var contextFactory = new ReadModelContextFactory(_resolver);
-			var readStoreManager = _resolver.Resolve<IReadStoreManager<FundReadModel>>();
+			var contextFactory = new ReadModelContextFactory(Resolver);
+			var readStoreManager = Resolver.Resolve<IReadStoreManager<FundReadModel>>();
 			var readStoreManagerWrapper = readStoreManager as ReadStoreManagerWrapper<FundAggregate, FundId, IAzureStorageReadModelStore<FundReadModel>, FundReadModel>;
 
 			var updatesNew = new[]
@@ -162,8 +158,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 
 			const string readModelId = "test-model-update-delete";
 
-			var contextFactory = new ReadModelContextFactory(_resolver);
-			var readStoreManager = _resolver.Resolve<IReadStoreManager<FundReadModel>>();
+			var contextFactory = new ReadModelContextFactory(Resolver);
+			var readStoreManager = Resolver.Resolve<IReadStoreManager<FundReadModel>>();
 			var readStoreManagerWrapper = readStoreManager as ReadStoreManagerWrapper<FundAggregate, FundId, IAzureStorageReadModelStore<FundReadModel>, FundReadModel>;
 
 			var updatesNew = new[]
@@ -221,8 +217,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 			const string readModelId = "test-model-get-existing";
 			const int aggregateSequenceNumber = 1;
 
-			var contextFactory = new ReadModelContextFactory(_resolver);
-			var readStoreManager = _resolver.Resolve<IReadStoreManager<FundReadModel>>();
+			var contextFactory = new ReadModelContextFactory(Resolver);
+			var readStoreManager = Resolver.Resolve<IReadStoreManager<FundReadModel>>();
 			var readStoreManagerWrapper = readStoreManager as ReadStoreManagerWrapper<FundAggregate, FundId, IAzureStorageReadModelStore<FundReadModel>, FundReadModel>;
 
 			var updates = new[]
@@ -262,8 +258,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 
 			const string readModelId = "test-model-delete";
 
-			var contextFactory = new ReadModelContextFactory(_resolver);
-			var readStoreManager = _resolver.Resolve<IReadStoreManager<FundReadModel>>();
+			var contextFactory = new ReadModelContextFactory(Resolver);
+			var readStoreManager = Resolver.Resolve<IReadStoreManager<FundReadModel>>();
 			var readStoreManagerWrapper = readStoreManager as ReadStoreManagerWrapper<FundAggregate, FundId, IAzureStorageReadModelStore<FundReadModel>, FundReadModel>;
 
 			var updates = new[]
@@ -305,8 +301,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 
 			const string readModelId = "test-model-delete-all";
 
-			var contextFactory = new ReadModelContextFactory(_resolver);
-			var readStoreManager = _resolver.Resolve<IReadStoreManager<FundReadModel>>();
+			var contextFactory = new ReadModelContextFactory(Resolver);
+			var readStoreManager = Resolver.Resolve<IReadStoreManager<FundReadModel>>();
 			var readStoreManagerWrapper = readStoreManager as ReadStoreManagerWrapper<FundAggregate, FundId, IAzureStorageReadModelStore<FundReadModel>, FundReadModel>;
 
 			var updates = new[]
@@ -334,7 +330,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.ReadStores
 
 			// Assert
 
-			var factory = _resolver.Resolve<IAzureStorageFactory>();
+			var factory = Resolver.Resolve<IAzureStorageFactory>();
 			var filter = TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.Equal, nameof(FundReadModel));
 			var query = new TableQuery().Where(filter).Select(new[]
 				{
