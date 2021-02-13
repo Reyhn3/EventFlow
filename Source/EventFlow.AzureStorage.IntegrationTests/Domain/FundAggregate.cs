@@ -34,5 +34,11 @@ namespace EventFlow.AzureStorage.IntegrationTests.Domain
 			Emit(new FundSharesSold(command.Quantity));
 			return ExecutionResult.Success();
 		}
+
+		public IExecutionResult Delete()
+		{
+			Emit(new FundSharesDeleted());
+			return ExecutionResult.Success();
+		}
 	}
 }

@@ -7,7 +7,8 @@ namespace EventFlow.AzureStorage.IntegrationTests.Domain
 {
 	internal class FundReadModel : IReadModel,
 		IAmReadModelFor<FundAggregate, FundId, FundSharesBought>,
-		IAmReadModelFor<FundAggregate, FundId, FundSharesSold>
+		IAmReadModelFor<FundAggregate, FundId, FundSharesSold>,
+		IAmReadModelFor<FundAggregate, FundId, FundSharesDeleted>
 	{
 		public decimal Quantity { get; private set; }
 
@@ -19,6 +20,11 @@ namespace EventFlow.AzureStorage.IntegrationTests.Domain
 		public void Apply(IReadModelContext context, IDomainEvent<FundAggregate, FundId, FundSharesSold> domainEvent)
 		{
 			Quantity -= domainEvent.AggregateEvent.Quantity.Value;
+		}
+
+		public void Apply(IReadModelContext context, IDomainEvent<FundAggregate, FundId, FundSharesDeleted> domainEvent)
+		{
+			context.MarkForDeletion();
 		}
 	}
 }
