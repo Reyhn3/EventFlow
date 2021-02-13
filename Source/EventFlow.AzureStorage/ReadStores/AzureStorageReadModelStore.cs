@@ -158,7 +158,7 @@ namespace EventFlow.AzureStorage.ReadStores
 				var (partitionKey, rowKey) = GetKeys(context.ReadModelId);
 				
 				if (context.ReadModelContext.IsMarkedForDeletion)
-					return TableOperation.Delete(new ReadModelEntity(partitionKey, rowKey));
+					return TableOperation.Delete(new ReadModelEntity(partitionKey, rowKey) {ETag = "*"});
 
 				var data = SerializeReadModel(context.ReadModelEnvelope.ReadModel);
 				var entity = context.ReadModelEntity ?? new ReadModelEntity(partitionKey, rowKey);
