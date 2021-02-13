@@ -20,7 +20,7 @@ namespace EventFlow.AzureStorage.EventStores
 		private bool _isInitialized;
 		
 		private readonly IAzureStorageFactory _factory;
-		private BlobProperties _blobProperties;
+		private ETag _etag;
 
 		public BlobOptimisticSyncStore(IAzureStorageFactory factory)
 		{
@@ -41,7 +41,7 @@ namespace EventFlow.AzureStorage.EventStores
 					await blob.UploadAsync(new MemoryStream(BitConverter.GetBytes(0L))).ConfigureAwait(false);
 
 				var properties = await blob.GetPropertiesAsync().ConfigureAwait(false);
-				_blobProperties = properties.Value;
+				_etag = properties.Value.ETag;
 
 				_isInitialized = true;
 			}
@@ -71,13 +71,14 @@ namespace EventFlow.AzureStorage.EventStores
 					{
 						Conditions = new BlobRequestConditions
 							{
-								IfMatch = _blobProperties.ETag
+								IfMatch = _etag
 							}
 					};
 
 				var blob = _factory.CreateBlobClientForSequenceNumber();
 				await using var stream = await WriteDataToStreamAsync(data).ConfigureAwait(false);
-				await blob.UploadAsync(stream, options).ConfigureAwait(false);
+				var response = await blob.UploadAsync(stream, options).ConfigureAwait(false);
+				_etag = response.Value.ETag;
 			}
 			catch (RequestFailedException ex)
 			{
