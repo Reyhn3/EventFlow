@@ -94,17 +94,21 @@ namespace EventFlow.AzureStorage.EventStores
 				return Array.Empty<ICommittedDomainEvent>();
 
 			var entityTask = await Task.WhenAll(serializedEvents
-//TODO: Investigate if IIdentity is globally unique, or scoped per aggregate. If the latter, the PK/RK-scheme must be changed or there will be namespace conflicts.
-					.Select(async e => new EventDataEntity(id.Value, e.AggregateSequenceNumber.ToString(RowKeyFormatString))
+					.Select(async e =>
 						{
-							EventName = e.Metadata.EventName,
-							AggregateId = id.Value,
-							AggregateName = e.Metadata.AggregateName,
-							AggregateSequenceNumber = e.AggregateSequenceNumber,
-							Data = e.SerializedData,
-							Metadata = e.SerializedMetadata,
-							GlobalSequenceNumber = await _uniqueIdGenerator.GetNextIdAsync().ConfigureAwait(false),
-							BatchId = Guid.Parse(e.Metadata[MetadataKeys.BatchId]),
+//BUG: Issue-820: IIdentity is not globally unique, which means namespace conflicts for the current PK/RK-scheme will occur. EventStoreBase must supply aggregate type information so the partition key can be scoped.
+							var (pk, rk) = GetKeys(null, id, e.AggregateSequenceNumber);
+							return new EventDataEntity(pk, rk)
+								{
+									EventName = e.Metadata.EventName,
+									AggregateId = id.Value,
+									AggregateName = e.Metadata.AggregateName,
+									AggregateSequenceNumber = e.AggregateSequenceNumber,
+									Data = e.SerializedData,
+									Metadata = e.SerializedMetadata,
+									GlobalSequenceNumber = await _uniqueIdGenerator.GetNextIdAsync().ConfigureAwait(false),
+									BatchId = Guid.Parse(e.Metadata[MetadataKeys.BatchId]),
+								};
 						}))
 				.ConfigureAwait(false);
 			var entities = entityTask.ToArray();
@@ -127,10 +131,10 @@ namespace EventFlow.AzureStorage.EventStores
 			int fromEventSequenceNumber,
 			CancellationToken cancellationToken)
 		{
-			var partitionKey = id.Value;
+			var partitionKey = GetPartitionKey(null, id);
 			var partitionKeyFilter = TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.Equal, partitionKey);
 
-			var rowKeyStart = fromEventSequenceNumber.ToString(RowKeyFormatString);
+			var rowKeyStart = GetRowKey(fromEventSequenceNumber);
 			var rowKeyFilter = TableQuery.GenerateFilterCondition(TableConstants.RowKey, QueryComparisons.GreaterThanOrEqual, rowKeyStart);
 
 			var filter = TableQuery.CombineFilters(partitionKeyFilter, TableOperators.And, rowKeyFilter);
@@ -152,7 +156,8 @@ namespace EventFlow.AzureStorage.EventStores
 
 		public async Task DeleteEventsAsync(IIdentity id, CancellationToken cancellationToken)
 		{
-			var filter = TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.Equal, id.Value);
+			var partitionKey = GetPartitionKey(null, id);
+			var filter = TableQuery.GenerateFilterCondition(TableConstants.PartitionKey, QueryComparisons.Equal, partitionKey);
 			var query = new TableQuery().Where(filter).Select(new[] {TableConstants.PartitionKey, TableConstants.RowKey});
 			var table = _factory.CreateTableReferenceForEventStore();
 
@@ -174,8 +179,11 @@ namespace EventFlow.AzureStorage.EventStores
 			} while (token != null);
 		}
 
+		private static (string partitionKey, string rowKey) GetKeys(string aggregateName, IIdentity aggregateIdentity, int aggregateSequenceNumber)
+			=> (GetPartitionKey(aggregateName, aggregateIdentity), GetRowKey(aggregateSequenceNumber));
+
 		internal static string GetPartitionKey(string aggregateName, IIdentity aggregateIdentity)
-			=> aggregateIdentity?.Value;
+			=> aggregateIdentity.Value;
 
 		internal static string GetRowKey(int aggregateSequenceNumber)
 			=> aggregateSequenceNumber.ToString(RowKeyFormatString);
