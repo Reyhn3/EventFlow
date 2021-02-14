@@ -1,5 +1,4 @@
 ﻿using EventFlow.AzureStorage.Config;
-using EventFlow.AzureStorage.IntegrationTests.Domain;
 using EventFlow.Configuration;
 using EventFlow.TestHelpers;
 using EventFlow.TestHelpers.Suites;
@@ -14,7 +13,6 @@ namespace EventFlow.AzureStorage.IntegrationTests.EventStores
 		protected override IRootResolver CreateRootResolver(IEventFlowOptions eventFlowOptions)
 		{
 			var resolver = eventFlowOptions
-				.RegisterModule<Module>()
 				.UseAzureStorage(c =>
 					{
 						c.StorageAccountConnectionString = "UseDevelopmentStorage=true";
@@ -26,7 +24,6 @@ namespace EventFlow.AzureStorage.IntegrationTests.EventStores
 						c.SnapshotStoreTableName = "EventFlowSnapshotsTEST";
 					})
 				.UseAzureStorageEventStore()
-				.UseAzureStorageReadModelFor<FundReadModel>()
 				.CreateResolver();
 			return resolver;
 		}

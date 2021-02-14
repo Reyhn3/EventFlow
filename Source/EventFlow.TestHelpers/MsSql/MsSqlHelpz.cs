@@ -50,7 +50,7 @@ namespace EventFlow.TestHelpers.MsSql
                 {
                     DataSource = FirstNonEmpty(
                         Environment.GetEnvironmentVariable("EVENTFLOW_MSSQL_SERVER"),
-                        ".")
+                        ".\\SQLEXPRESS")
                 };
 
             var password = Environment.GetEnvironmentVariable("EVENTFLOW_MSSQL_PASS");
