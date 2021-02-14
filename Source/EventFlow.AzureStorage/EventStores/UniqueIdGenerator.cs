@@ -8,8 +8,8 @@ namespace EventFlow.AzureStorage.EventStores
 {
 	/// <summary>
 	///     Used to generate simple, unique identifiers across multiple environments, processes and/or threads. Requires a
-	///     global data store that can be used to store the last upper limit (must implement the IOptimisticSyncStore interface).
-	///     Contention is reduced by allocating ranges to each instance of the UniqueIdGenerator.
+	///     global data store that can be used to store the last upper limit (must implement <see cref="IOptimisticSyncStore"/>).
+	///     Contention is reduced by allocating ranges to each instance of the <see cref="UniqueIdGenerator"/>.
 	/// </summary>
 	public class UniqueIdGenerator : IUniqueIdGenerator
 	{
@@ -64,7 +64,7 @@ namespace EventFlow.AzureStorage.EventStores
 				retryCount++;
 			}
 
-			throw new Exception(string.Format("Failed to update the OptimisticSyncStore after {0} attempts", retryCount));
+			throw new Exception($"Failed to update the OptimisticSyncStore after {retryCount} attempts");
 		}
 	}
 }

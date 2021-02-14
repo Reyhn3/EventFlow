@@ -17,9 +17,9 @@ namespace EventFlow.AzureStorage.EventStores
 	public class BlobOptimisticSyncStore : IOptimisticSyncStore
 	{
 		private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
-		private bool _isInitialized;
-		
 		private readonly IAzureStorageFactory _factory;
+		
+		private bool _isInitialized;
 		private ETag _etag;
 
 		public BlobOptimisticSyncStore(IAzureStorageFactory factory)
@@ -79,6 +79,7 @@ namespace EventFlow.AzureStorage.EventStores
 				await using var stream = await WriteDataToStreamAsync(data).ConfigureAwait(false);
 				var response = await blob.UploadAsync(stream, options).ConfigureAwait(false);
 				_etag = response.Value.ETag;
+				return true;
 			}
 			catch (RequestFailedException ex)
 			{
@@ -87,8 +88,6 @@ namespace EventFlow.AzureStorage.EventStores
 
 				throw;
 			}
-
-			return true;
 		}
 
 		private static async Task<Stream> WriteDataToStreamAsync(long data)
