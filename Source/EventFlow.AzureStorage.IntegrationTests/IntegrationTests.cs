@@ -5,7 +5,6 @@ using EventFlow.AzureStorage.Connection;
 using EventFlow.AzureStorage.EventStores;
 using EventFlow.AzureStorage.IntegrationTests.Domain;
 using EventFlow.Configuration;
-using EventFlow.Queries;
 using EventFlow.TestHelpers;
 using NUnit.Framework;
 
@@ -29,8 +28,6 @@ namespace EventFlow.AzureStorage.IntegrationTests
 		}
 
 		protected IRootResolver Resolver { get; private set; }
-		protected ICommandBus CommandBus { get; private set; }
-		protected IQueryProcessor QueryProcessor { get; private set; }
 
 		[OneTimeSetUp]
 		public async Task SuitePreRun()

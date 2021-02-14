@@ -22,6 +22,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.Domain.Queries
 	{
 		private readonly IReadModelStore<FundReadModel> _readStore;
 
+//TODO: Is this wrong?
 		public GetCurrentFundShareQuantityQueryHandler(IReadModelStore<FundReadModel> readStore)
 		{
 			_readStore = readStore ?? throw new ArgumentNullException(nameof(readStore));
