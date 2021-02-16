@@ -116,6 +116,7 @@ namespace EventFlow.AzureStorage.EventStores
 			_log.Verbose("Committing {0} events to Azure Storage event store for entity with ID '{1}'", serializedEvents.Count, id);
 
 //TODO: This should batch in case there are many events.
+//TODO: Handle optimistic concurrency - Microsoft.Azure.Cosmos.Table.StorageException : 0:The specified entity already exists.
 			var operation = new TableBatchOperation();
 			foreach (var entity in entities)
 				operation.Insert(entity);

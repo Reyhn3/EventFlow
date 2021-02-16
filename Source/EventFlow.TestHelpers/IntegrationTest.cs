@@ -47,6 +47,7 @@ namespace EventFlow.TestHelpers
 {
     public abstract class IntegrationTest: Test
     {
+
         protected IRootResolver Resolver { get; private set; }
         protected IAggregateStore AggregateStore { get; private set; }
         protected IEventStore EventStore { get; private set; }
@@ -60,7 +61,7 @@ namespace EventFlow.TestHelpers
         protected IReadModelPopulator ReadModelPopulator { get; private set; }
 
         [SetUp]
-        public void SetUpIntegrationTest()
+        public async Task SetUpIntegrationTest()
         {
             var eventFlowOptions = Options(EventFlowOptions.New)
                 .RegisterServices(sr => sr.Register<IScopedContext, ScopedContext>(Lifetime.Scoped))
@@ -80,6 +81,13 @@ namespace EventFlow.TestHelpers
             QueryProcessor = Resolver.Resolve<IQueryProcessor>();
             ReadModelPopulator = Resolver.Resolve<IReadModelPopulator>();
             SagaStore = Resolver.Resolve<ISagaStore>();
+
+            await PreRun().ConfigureAwait(false);
+        }
+
+        protected virtual Task PreRun()
+        {
+	        return Task.CompletedTask;
         }
 
         [TearDown]

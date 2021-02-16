@@ -1,4 +1,8 @@
-﻿using EventFlow.AzureStorage.Config;
+﻿using System.Threading.Tasks;
+using Castle.DynamicProxy.Generators.Emitters.SimpleAST;
+using EventFlow.AzureStorage.Config;
+using EventFlow.AzureStorage.Connection;
+using EventFlow.AzureStorage.EventStores;
 using EventFlow.Configuration;
 using EventFlow.TestHelpers;
 using EventFlow.TestHelpers.Suites;
@@ -11,8 +15,7 @@ namespace EventFlow.AzureStorage.IntegrationTests.EventStores
 	public class AzureStorageEventStoreTests : TestSuiteForEventStore
 	{
 		protected override IRootResolver CreateRootResolver(IEventFlowOptions eventFlowOptions)
-		{
-			var resolver = eventFlowOptions
+			=> eventFlowOptions
 				.UseAzureStorage(c =>
 					{
 						c.StorageAccountConnectionString = "UseDevelopmentStorage=true";
@@ -24,8 +27,31 @@ namespace EventFlow.AzureStorage.IntegrationTests.EventStores
 						c.SnapshotStoreTableName = "EventFlowSnapshotsTEST";
 					})
 				.UseAzureStorageEventStore()
+				.UseAzureStorageSnapshotStore()
 				.CreateResolver();
-			return resolver;
+
+		protected override Task PreRun()
+			=> ResetAsync();
+
+		[TearDown]
+		public async Task PostRun()
+		{
+			await ResetAsync();
+		}
+
+		private async Task ResetAsync()
+		{
+			var azureStorageFactory = Resolver.Resolve<IAzureStorageFactory>();
+			await PurgeAllTestTables(azureStorageFactory);
+			var syncStore = Resolver.Resolve<IOptimisticSyncStore>();
+			await syncStore.TryOptimisticWriteAsync(0);
+		}
+
+		private static async Task PurgeAllTestTables(IAzureStorageFactory azureStorageFactory)
+		{
+			await TableHelper.PurgeTable(azureStorageFactory.CreateTableReferenceForEventStore());
+			await TableHelper.PurgeTable(azureStorageFactory.CreateTableReferenceForReadStore());
+			await TableHelper.PurgeTable(azureStorageFactory.CreateTableReferenceForSnapshotStore());
 		}
 	}
 }
