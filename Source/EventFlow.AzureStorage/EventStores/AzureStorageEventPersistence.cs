@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.Aggregates;
 using EventFlow.AzureStorage.Connection;
 using EventFlow.Core;
 using EventFlow.EventStores;
+using EventFlow.Exceptions;
 using EventFlow.Logs;
 using Microsoft.Azure.Cosmos.Table;
 using Microsoft.Azure.Cosmos.Table.Protocol;
@@ -116,13 +118,22 @@ namespace EventFlow.AzureStorage.EventStores
 			_log.Verbose("Committing {0} events to Azure Storage event store for entity with ID '{1}'", serializedEvents.Count, id);
 
 //TODO: This should batch in case there are many events.
-//TODO: Handle optimistic concurrency - Microsoft.Azure.Cosmos.Table.StorageException : 0:The specified entity already exists.
 			var operation = new TableBatchOperation();
 			foreach (var entity in entities)
 				operation.Insert(entity);
 
-			var table = _factory.CreateTableReferenceForEventStore();
-			await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
+			try
+			{
+				var table = _factory.CreateTableReferenceForEventStore();
+				await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
+			}
+			catch (StorageException ex) when (ex.RequestInformation.HttpStatusCode == (int)HttpStatusCode.Conflict)
+			{
+				var index = ex.RequestInformation.HttpStatusMessage.Substring(0, ex.Message.IndexOf(':'));
+				var message = string.Format("Event at index {0} already exists in Azure Storage event store for entity with ID '{1}'", index, id);
+				_log.Verbose(ex, message);
+				throw new OptimisticConcurrencyException(message, ex);
+			}
 
 			return entities;
 		}
