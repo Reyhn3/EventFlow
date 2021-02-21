@@ -12,7 +12,7 @@ using NUnit.Framework;
 namespace EventFlow.AzureStorage.IntegrationTests.EventStores
 {
 	[Category(Categories.Integration)]
-	public class AzureStorageEventStoreTests : TestSuiteForEventStore
+	public class AzureStorageTestSuiteForEventStore : TestSuiteForEventStore
 	{
 		protected override IRootResolver CreateRootResolver(IEventFlowOptions eventFlowOptions)
 			=> eventFlowOptions
