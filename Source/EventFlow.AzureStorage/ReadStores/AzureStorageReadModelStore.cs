@@ -178,6 +178,7 @@ namespace EventFlow.AzureStorage.ReadStores
 				entity.Data = data;
 				entity.Version = context.ReadModelEnvelope.Version ?? 0;
 				entity.ReadModelType = ReadModelName;
+//TODO: Use ETag and InsertOrReplace, otherwise the fault handler will never succeed.
 				return TableOperation.Insert(entity);
 			}
 		}
