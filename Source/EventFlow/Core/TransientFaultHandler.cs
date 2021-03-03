@@ -108,7 +108,7 @@ namespace EventFlow.Core
                 if (retry.RetryAfter != TimeSpan.Zero)
                 {
                     _log.Verbose(
-                        "Exception {0} with message '{1} 'is transient, retrying action '{2}' after {3:0.###} seconds for retry count {4}",
+                        "Exception {0} with message '{1}' is transient, retrying action '{2}' after {3:0.###} seconds for retry count {4}",
                         currentException.GetType().PrettyPrint(),
                         currentException.Message,
                         label,

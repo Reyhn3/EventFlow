@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EventFlow.Aggregates;
 using EventFlow.AzureStorage.Connection;
+using EventFlow.Core;
+using EventFlow.Core.RetryStrategies;
+using EventFlow.Exceptions;
 using EventFlow.Extensions;
 using EventFlow.Logs;
 using EventFlow.ReadStores;
@@ -28,15 +32,21 @@ namespace EventFlow.AzureStorage.ReadStores
 				ContractResolver = new PrivateContractResolver()
 			};
 
+		private readonly ILog _log;
 		private readonly IAzureStorageFactory _azureStorageFactory;
 		private readonly IReadModelFactory<TReadModel> _readModelFactory;
-		private readonly ILog _log;
+		private readonly ITransientFaultHandler<IOptimisticConcurrencyRetryStrategy> _transientFaultHandler;
 
-		public AzureStorageReadModelStore(ILog log, IAzureStorageFactory azureStorageFactory, IReadModelFactory<TReadModel> readModelFactory)
+		public AzureStorageReadModelStore(
+			ILog log,
+			IAzureStorageFactory azureStorageFactory,
+			IReadModelFactory<TReadModel> readModelFactory,
+			ITransientFaultHandler<IOptimisticConcurrencyRetryStrategy> transientFaultHandler)
 		{
 			_log = log ?? throw new ArgumentNullException(nameof(log));
 			_azureStorageFactory = azureStorageFactory ?? throw new ArgumentNullException(nameof(azureStorageFactory));
 			_readModelFactory = readModelFactory ?? throw new ArgumentNullException(nameof(readModelFactory));
+			_transientFaultHandler = transientFaultHandler ?? throw new ArgumentNullException(nameof(transientFaultHandler));
 		}
 
 		public async Task DeleteAsync(string id, CancellationToken cancellationToken)
@@ -97,6 +107,89 @@ namespace EventFlow.AzureStorage.ReadStores
 			Func<IReadModelContext, IReadOnlyCollection<IDomainEvent>, ReadModelEnvelope<TReadModel>, CancellationToken, Task<ReadModelUpdateResult<TReadModel>>> updateReadModel,
 			CancellationToken cancellationToken)
 		{
+			foreach (var readModelUpdate in readModelUpdates)
+				await _transientFaultHandler.TryAsync(
+						c => UpdateReadModelAsync(readModelUpdate, readModelContextFactory, updateReadModel, c),
+						Label.Named($"azure-storage-read-model-update-{ReadModelName.ToLower()}"),
+						cancellationToken)
+					.ConfigureAwait(false);
+		}
+
+		private async Task UpdateReadModelAsync(
+			ReadModelUpdate readModelUpdate,
+			IReadModelContextFactory readModelContextFactory,
+			Func<IReadModelContext, IReadOnlyCollection<IDomainEvent>, ReadModelEnvelope<TReadModel>, CancellationToken, Task<ReadModelUpdateResult<TReadModel>>> updateReadModel,
+			CancellationToken cancellationToken)
+		{
+			var readModelEntity = await RetrieveSingleEntityAsync(readModelUpdate.ReadModelId, cancellationToken).ConfigureAwait(false);
+			var isNew = readModelEntity == null;
+			ReadModelUpdateContext context;
+			if (isNew)
+			{
+				var readModelEnvelope = await CreateEnvelopeAsync(readModelUpdate.ReadModelId, cancellationToken).ConfigureAwait(false);
+				var readModelContext = readModelContextFactory.Create(readModelUpdate.ReadModelId, true);
+				context = new ReadModelUpdateContext(readModelUpdate, null, readModelEnvelope, readModelContext);
+			}
+			else
+			{
+				var readModelEnvelope = await CreateEnvelopeAsync(readModelEntity, cancellationToken).ConfigureAwait(false);
+				var readModelContext = readModelContextFactory.Create(readModelUpdate.ReadModelId, false);
+				context = new ReadModelUpdateContext(readModelUpdate, readModelEntity, readModelEnvelope, readModelContext);
+			}
+
+			var readModelUpdateResult = await updateReadModel(
+				context.ReadModelContext,
+				context.ReadModelUpdate.DomainEvents,
+				context.ReadModelEnvelope,
+				cancellationToken).ConfigureAwait(false);
+
+			if (readModelUpdateResult.IsModified)
+				context.ReadModelEnvelope = readModelUpdateResult.Envelope;
+
+			if (readModelUpdateResult.IsModified)
+				await PersistReadModelAsync(context, cancellationToken).ConfigureAwait(false);
+		}
+
+		private async Task PersistReadModelAsync(ReadModelUpdateContext context, CancellationToken cancellationToken)
+		{
+			var table = _azureStorageFactory.CreateTableReferenceForReadStore();
+			var operation = CreateEntityOperation(context);
+
+			try
+			{
+				await table.ExecuteAsync(operation, cancellationToken).ConfigureAwait(false);
+			}
+			catch (StorageException ex) when (ex.RequestInformation.HttpStatusCode == (int)HttpStatusCode.Conflict)
+			{
+				var message = string.Format("Read model {0} already exists in Azure Storage read model store for entity with ID '{1}' in version {2}", ReadModelName, context.ReadModelId, context.ReadModelEnvelope.Version);
+				_log.Verbose(ex, message);
+				throw new OptimisticConcurrencyException(message, ex);
+			}
+
+			static TableOperation CreateEntityOperation(ReadModelUpdateContext context)
+			{
+				var (partitionKey, rowKey) = GetKeys(context.ReadModelId);
+
+				if (context.ReadModelContext.IsMarkedForDeletion)
+					return TableOperation.Delete(new ReadModelEntity(partitionKey, rowKey) { ETag = "*" });
+
+				var data = SerializeReadModel(context.ReadModelEnvelope.ReadModel);
+				var entity = context.ReadModelEntity ?? new ReadModelEntity(partitionKey, rowKey);
+				entity.Data = data;
+				entity.Version = context.ReadModelEnvelope.Version ?? 0;
+				entity.ReadModelType = ReadModelName;
+				return TableOperation.Insert(entity);
+			}
+		}
+
+//TODO: Remove (KYD)
+		private async Task UpdateReadModelsAsync(
+			IReadOnlyCollection<ReadModelUpdate> readModelUpdates,
+			IReadModelContextFactory readModelContextFactory,
+			Func<IReadModelContext, IReadOnlyCollection<IDomainEvent>, ReadModelEnvelope<TReadModel>, CancellationToken, Task<ReadModelUpdateResult<TReadModel>>> updateReadModel,
+			CancellationToken cancellationToken)
+		{
+//TODO: Refactor to use a ITransientFaultHandler and a IRetryStrategy.
 			IEnumerable<ReadModelEntity> readModelEntities;
 			if (readModelUpdates.Count == 1)
 				readModelEntities = (await RetrieveSingleEntityAsync(readModelUpdates.Single().ReadModelId, cancellationToken).ConfigureAwait(false)).AsEnumerable();
@@ -142,6 +235,7 @@ namespace EventFlow.AzureStorage.ReadStores
 			await PersistReadModelsAsync(updatedContexts, cancellationToken).ConfigureAwait(false);
 		}
 
+//TODO: Remove (KYD)
 		private async Task PersistReadModelsAsync(IAsyncEnumerable<ReadModelUpdateContext> contexts, CancellationToken cancellationToken)
 		{
 			var table = _azureStorageFactory.CreateTableReferenceForReadStore();
@@ -150,6 +244,8 @@ namespace EventFlow.AzureStorage.ReadStores
 			{
 				var operation = new TableBatchOperation();
 				await batch.ForEachAsync(c => operation.Add(CreateEntityOperation(c)), cancellationToken).ConfigureAwait(false);
+//TODO: Handle StorageException : 0:The specified entity already exists.
+//TODO: Batch by read model? So we don't have to retry everything but 1.
 				await table.ExecuteBatchAsync(operation, cancellationToken).ConfigureAwait(false);
 			}
 
@@ -165,7 +261,7 @@ namespace EventFlow.AzureStorage.ReadStores
 				entity.Data = data;
 				entity.Version = context.ReadModelEnvelope.Version ?? 0;
 				entity.ReadModelType = ReadModelName;
-				return TableOperation.InsertOrReplace(entity);
+				return TableOperation.Insert(entity);
 			}
 		}
 
